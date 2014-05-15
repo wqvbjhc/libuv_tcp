@@ -4,6 +4,8 @@
 * @details
 * @author   陈吉宏, wqvbjhc@gmail.com
 * @date     2014-5-13
+* @mod      2014-5-13  phata  修正服务器与客户端的错误.现服务器支持多客户端连接
+                              修改客户端测试代码，支持并发多客户端测试
 ****************************************/
 #ifndef TCPSocket_H
 #define TCPSocket_H
@@ -23,32 +25,30 @@ class TCPServer;
 class clientdata
 {
 public:
-    clientdata(int clientid):client_id(clientid),discon_count(0),recvcb_(nullptr) {
-		fprintf(stdout,"clientdata 1\n");
+    clientdata(int clientid):client_id(clientid),recvcb_(nullptr) {
         client_handle = (uv_tcp_t*)malloc(sizeof(*client_handle));
-		fprintf(stdout,"clientdata 2\n");
         client_handle->data = this;
-		fprintf(stdout,"clientdata 3\n");
-        buffer = uv_buf_init((char*)malloc(BUFFERSIZE), BUFFERSIZE);
-		fprintf(stdout,"clientdata 4\n");
+        readbuffer = uv_buf_init((char*)malloc(BUFFERSIZE), BUFFERSIZE);
+		writebuffer = uv_buf_init((char*)malloc(BUFFERSIZE), BUFFERSIZE);
     }
     virtual ~clientdata() {
-        fprintf(stdout,"释放on clientdata id =%d\n",client_id);
-        free(buffer.base);
-        buffer.base = nullptr;
-        buffer.len = 0;
-        fprintf(stdout,"释放on clientdata id =%d end free buf\n",client_id);
+        free(readbuffer.base);
+        readbuffer.base = nullptr;
+        readbuffer.len = 0;
+
+		free(writebuffer.base);
+		writebuffer.base = nullptr;
+		writebuffer.len = 0;
 
         free(client_handle);
         client_handle = nullptr;
-        fprintf(stdout,"释放on clientdata id =%d end delete  client_handle\n",client_id);
     }
     int client_id;//客户端id,惟一
     uv_tcp_t* client_handle;//客户端句柄
     TCPServer* tcp_server;//服务器句柄(保存是因为某些回调函数需要到)
-    unsigned int discon_count;//重连次数
-    uv_buf_t buffer;//接受数据的buf
-    uv_write_t write_req_;
+    uv_buf_t readbuffer;//接受数据的buf
+	uv_buf_t writebuffer;//写数据的buf
+    uv_write_t write_req;
     server_recvcb recvcb_;//接收数据回调给用户的函数
 };
 
@@ -82,7 +82,8 @@ protected:
     static void AfterServerRecv(uv_stream_t *client, ssize_t nread, const uv_buf_t* buf);
     static void AfterSend(uv_write_t *req, int status);
     static void onAllocBuffer(uv_handle_t *handle, size_t suggested_size, uv_buf_t *buf);
-    static void AfterClose(uv_handle_t *handle);
+    static void AfterServerClose(uv_handle_t *handle);
+	static void AfterClientClose(uv_handle_t *handle);
     static void acceptConnection(uv_stream_t *server, int status);
 
 private:
@@ -99,6 +100,7 @@ private:
     uv_loop_t *loop_;
     std::string errmsg_;
     newconnect newconcb_;
+	bool isinit_;//是否已初始化，用于close函数中判断
 };
 
 
@@ -137,7 +139,7 @@ protected:
     static void ConnectThread6(void* arg);//真正的connect线程
 
     bool init();
-    bool run(int status);
+    bool run(int status = UV_RUN_DEFAULT);
 private:
     enum {
         CONNECT_TIMEOUT,
@@ -149,15 +151,18 @@ private:
     uv_loop_t *loop_;
     uv_write_t write_req_;//写时请求
     uv_connect_t connect_req_;//连接时请求
-    uv_timer_t timeout_handle_;//超时连接
     uv_thread_t connect_threadhanlde_;//线程句柄
-    std::string errmsg_;
-    uv_buf_t buffer;//接受数据的buf
+    std::string errmsg_;//错误信息
+    uv_buf_t readbuffer_;//接受数据的buf
+	uv_buf_t writebuffer_;//写数据的buf
+	uv_mutex_t write_mutex_handle_;//保护write,保存前一write完成才进行下一write
+
     int connectstatus_;//连接状态
     client_recvcb recvcb_;//回调函数
     void* userdata_;//回调函数的用户数据
     std::string connectip_;//连接的服务器IP
     int connectport_;//连接的服务器端口号
+	bool isinit_;//是否已初始化，用于close函数中判断
 };
 
 }

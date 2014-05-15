@@ -1,6 +1,7 @@
 ﻿#include <iostream>
 #include <string>
 #include "tcpsocket.h"
+#include "mswin_special/sys/DumpFile.h"
 using namespace std;
 using namespace uv;
 
@@ -32,11 +33,12 @@ int main(int argc, char** argv)
         fprintf(stdout,"usage: %s server_ip_address\neg.%s 192.168.1.1\n",argv[0],argv[0]);
         return 0;
     }
-	//TCPServer::StartLog("log/");
+	DeclareDumpFile();
+	TCPServer::StartLog("log/");
     server.setnewconnectcb(NewConnect);
     if(!server.Start(argv[1],12345)) {
         fprintf(stdout,"Start Server error:%s\n",server.GetLastErrMsg());
     }
-    
+	fprintf(stdout,"server return on main.\n");
     return 0;
 }
