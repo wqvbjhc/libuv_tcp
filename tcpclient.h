@@ -1,22 +1,22 @@
-/***************************************
+ï»¿/***************************************
 * @file     tcpclient.h
-* @brief    »ùÓÚlibuv·â×°µÄtcp·şÎñÆ÷Óë¿Í»§¶Ë,Ê¹ÓÃlog4z×÷ÈÕÖ¾¹¤¾ß
+* @brief    åŸºäºlibuvå°è£…çš„tcpæœåŠ¡å™¨ä¸å®¢æˆ·ç«¯,ä½¿ç”¨log4zä½œæ—¥å¿—å·¥å…·
 * @details
-* @author   ³Â¼ªºê, wqvbjhc@gmail.com
+* @author   é™ˆå‰å®, wqvbjhc@gmail.com
 * @date     2014-05-13
-* @mod      2014-05-13  phata  ĞŞÕı·şÎñÆ÷Óë¿Í»§¶ËµÄ´íÎó.ÏÖ·şÎñÆ÷Ö§³Ö¶à¿Í»§¶ËÁ¬½Ó
-                               ĞŞ¸Ä¿Í»§¶Ë²âÊÔ´úÂë£¬Ö§³Ö²¢·¢¶à¿Í»§¶Ë²âÊÔ
-			2014-05-23  phata  Ô­·şÎñÆ÷Óë¿Í»§¶ËÖ»½ÓÊÕÂãÊı¾İ£¬ÏÖ¸ÄÎª½ÓÊÕNetPacket(¶¨Òånet_base.h)·â×°µÄÊı¾İ¡£½ÓÊÕ»Øµ÷Îª½âÎöºóµÄÊı¾İ£¬µ«·¢ËÍĞèÒªÓÃ»§×Ô¼º·â±Õ³ÉNetPacketºó·¢ËÍ
-			                   ĞŞ¸Äserver_recvcbµÄ¶¨Òå£¬Ìí¼ÓNetPacket²ÎÊı
-							   ĞŞ¸Äclient_recvcbµÄ¶¨Òå£¬Ìí¼ÓNetPacket²ÎÊı
-							   ÉêÇëuv_write_tÁĞ±í¿Õ¼äÓÃÓÚsend
-			2014-05-27  phata  clientdata¸üÃûÎªAcceptClient£¬²¢·á¸»ÁËÆä¹¦ÄÜ.
-			                   Ê¹ÓÃÒì²½·¢ËÍ»úÖÆ£¬¿ÉÒÔÔÚÆäËûÏß³ÌÖĞµ÷ÓÃ·şÎñÆ÷Óë¿Í»§¶ËµÄsendº¯Êı
-							   ĞŞ¸ÄÖ®Ç°²âÊÔ·¢ÏÖ±ÀÀ£µÄÇé¿ö
-							   BUFFER_SIZEÓÉ1M¸ÄÎª10K£¬Ò»¸öclientĞèÒª6±¶BUFFER_SIZE.Ò»¸öclientÄÚ²¿»áÆô¶¯2¸öÏß³Ì
-		    2014-07-24  phata  ´ÓtcpsocketÖĞ·ÖÀë³öTCPClient¡£
-			                   µ¥¶ÀÏß³ÌÊµÏÖlibuvµÄrun(ÊÂ¼şÑ­»·)£¬ÈÎºÎlibuvÏà¹Ø²Ù×÷¶¼ÔÚ´ËÏß³ÌÖĞÍê³É¡£Òò´ËTCPClient¿ÉÒÔ¶àÏß³ÌÖĞÈÎÒâµ÷ÓÃ
-							   Ò»¸öclientĞèÒª4±¶BUFFER_SIZE(readbuffer_,writebuffer_,writebuf_list_,readpacket_),Æô¶¯Á½¸öÏß³Ì(readpacket_ÄÚ²¿Ò»¸ö£¬ConnectÆô¶¯Ò»¸ö)
+* @mod      2014-05-13  phata  ä¿®æ­£æœåŠ¡å™¨ä¸å®¢æˆ·ç«¯çš„é”™è¯¯.ç°æœåŠ¡å™¨æ”¯æŒå¤šå®¢æˆ·ç«¯è¿æ¥
+                               ä¿®æ”¹å®¢æˆ·ç«¯æµ‹è¯•ä»£ç ï¼Œæ”¯æŒå¹¶å‘å¤šå®¢æˆ·ç«¯æµ‹è¯•
+			2014-05-23  phata  åŸæœåŠ¡å™¨ä¸å®¢æˆ·ç«¯åªæ¥æ”¶è£¸æ•°æ®ï¼Œç°æ”¹ä¸ºæ¥æ”¶NetPacket(å®šä¹‰net_base.h)å°è£…çš„æ•°æ®ã€‚æ¥æ”¶å›è°ƒä¸ºè§£æåçš„æ•°æ®ï¼Œä½†å‘é€éœ€è¦ç”¨æˆ·è‡ªå·±å°é—­æˆNetPacketåå‘é€
+			                   ä¿®æ”¹server_recvcbçš„å®šä¹‰ï¼Œæ·»åŠ NetPacketå‚æ•°
+							   ä¿®æ”¹client_recvcbçš„å®šä¹‰ï¼Œæ·»åŠ NetPacketå‚æ•°
+							   ç”³è¯·uv_write_tåˆ—è¡¨ç©ºé—´ç”¨äºsend
+			2014-05-27  phata  clientdataæ›´åä¸ºAcceptClientï¼Œå¹¶ä¸°å¯Œäº†å…¶åŠŸèƒ½.
+			                   ä½¿ç”¨å¼‚æ­¥å‘é€æœºåˆ¶ï¼Œå¯ä»¥åœ¨å…¶ä»–çº¿ç¨‹ä¸­è°ƒç”¨æœåŠ¡å™¨ä¸å®¢æˆ·ç«¯çš„sendå‡½æ•°
+							   ä¿®æ”¹ä¹‹å‰æµ‹è¯•å‘ç°å´©æºƒçš„æƒ…å†µ
+							   BUFFER_SIZEç”±1Mæ”¹ä¸º10Kï¼Œä¸€ä¸ªclientéœ€è¦6å€BUFFER_SIZE.ä¸€ä¸ªclientå†…éƒ¨ä¼šå¯åŠ¨2ä¸ªçº¿ç¨‹
+		    2014-07-24  phata  ä»tcpsocketä¸­åˆ†ç¦»å‡ºTCPClientã€‚
+			                   å•ç‹¬çº¿ç¨‹å®ç°libuvçš„run(äº‹ä»¶å¾ªç¯)ï¼Œä»»ä½•libuvç›¸å…³æ“ä½œéƒ½åœ¨æ­¤çº¿ç¨‹ä¸­å®Œæˆã€‚å› æ­¤TCPClientå¯ä»¥å¤šçº¿ç¨‹ä¸­ä»»æ„è°ƒç”¨
+							   ä¸€ä¸ªclientéœ€è¦4å€BUFFER_SIZE(readbuffer_,writebuffer_,writebuf_list_,readpacket_),å¯åŠ¨ä¸¤ä¸ªçº¿ç¨‹(readpacket_å†…éƒ¨ä¸€ä¸ªï¼ŒConnectå¯åŠ¨ä¸€ä¸ª)
 ****************************************/
 #ifndef TCPCLIENT_H
 #define TCPCLIENT_H
@@ -35,32 +35,32 @@
 
 namespace uv
 {
-/**********************************************¿Í»§¶Ë****************************************************/
+/**********************************************å®¢æˆ·ç«¯****************************************************/
 /*************************************************
-¹¦ÄÜ£ºTCP ¿Í»§¶Ë¶ÔÏó
-µ÷ÓÃ·½·¨£º
-ÉèÖÃ»Øµ÷º¯ÊıSetRecvCB/SetClosedCB
-µ÷ÓÃConnect/Connect6º¯ÊıÆô¶¯¿Í»§¶Ë
-µ÷ÓÃSend·¢ËÍÊı¾İ(¿ÉÑ¡)
-µ÷ÓÃCloseÍ£Ö¹¿Í»§¶Ë£¬ÕæÕıÍ£Ö¹Ê±»á´¥·¢ÔÚ»Øµ÷SetRecvCBÖĞËùÉèÖÃµÄº¯Êı
-µ÷ÓÃIsClosedÅĞ¶Ï¿Í»§¶ËÊÇ·ñÕæÕı¹Ø±ÕÁË
+åŠŸèƒ½ï¼šTCP å®¢æˆ·ç«¯å¯¹è±¡
+è°ƒç”¨æ–¹æ³•ï¼š
+è®¾ç½®å›è°ƒå‡½æ•°SetRecvCB/SetClosedCB
+è°ƒç”¨Connect/Connect6å‡½æ•°å¯åŠ¨å®¢æˆ·ç«¯
+è°ƒç”¨Sendå‘é€æ•°æ®(å¯é€‰)
+è°ƒç”¨Closeåœæ­¢å®¢æˆ·ç«¯ï¼ŒçœŸæ­£åœæ­¢æ—¶ä¼šè§¦å‘åœ¨å›è°ƒSetRecvCBä¸­æ‰€è®¾ç½®çš„å‡½æ•°
+è°ƒç”¨IsClosedåˆ¤æ–­å®¢æˆ·ç«¯æ˜¯å¦çœŸæ­£å…³é—­äº†
 *************************************************/
 class TCPClient
 {
 public:
     TCPClient(char packhead, char packtail);
     virtual ~TCPClient();
-    static void StartLog(const char* logpath = nullptr);//Æô¶¯ÈÕÖ¾£¬±ØĞëÆô¶¯²Å»áÉú³ÉÈÕÖ¾
+    static void StartLog(const char* logpath = nullptr);//å¯åŠ¨æ—¥å¿—ï¼Œå¿…é¡»å¯åŠ¨æ‰ä¼šç”Ÿæˆæ—¥å¿—
 public:
-    //»ù±¾º¯Êı
-    void SetRecvCB(ClientRecvCB pfun, void* userdata);////ÉèÖÃ½ÓÊÕ»Øµ÷º¯Êı£¬Ö»ÓĞÒ»¸ö
-    void SetClosedCB(TcpCloseCB pfun, void* userdata);//ÉèÖÃ½ÓÊÕ¹Ø±ÕÊÂ¼şµÄ»Øµ÷º¯Êı
-    bool Connect(const char* ip, int port);//Æô¶¯connectÏß³Ì£¬Ñ­»·µÈ´ıÖ±µ½connectÍê³É
-    bool Connect6(const char* ip, int port);//Æô¶¯connectÏß³Ì£¬Ñ­»·µÈ´ıÖ±µ½connectÍê³É
+    //åŸºæœ¬å‡½æ•°
+    void SetRecvCB(ClientRecvCB pfun, void* userdata);////è®¾ç½®æ¥æ”¶å›è°ƒå‡½æ•°ï¼Œåªæœ‰ä¸€ä¸ª
+    void SetClosedCB(TcpCloseCB pfun, void* userdata);//è®¾ç½®æ¥æ”¶å…³é—­äº‹ä»¶çš„å›è°ƒå‡½æ•°
+    bool Connect(const char* ip, int port);//å¯åŠ¨connectçº¿ç¨‹ï¼Œå¾ªç¯ç­‰å¾…ç›´åˆ°connectå®Œæˆ
+    bool Connect6(const char* ip, int port);//å¯åŠ¨connectçº¿ç¨‹ï¼Œå¾ªç¯ç­‰å¾…ç›´åˆ°connectå®Œæˆ
     int  Send(const char* data, std::size_t len);
-	void Close(){ isuseraskforclosed_ = true;}//ÓÃ»§¹Ø±Õ¿Í»§¶Ë£¬IsClosed·µ»Øtrue²ÅÊÇÕæÕı¹Ø±ÕÁË
-	bool IsClosed(){return isclosed_;};//ÅĞ¶Ï¿Í»§¶ËÊÇ·ñÒÑ¹Ø±Õ
-    //ÊÇ·ñÆôÓÃNagleËã·¨
+	void Close(){ isuseraskforclosed_ = true;}//ç”¨æˆ·å…³é—­å®¢æˆ·ç«¯ï¼ŒIsClosedè¿”å›trueæ‰æ˜¯çœŸæ­£å…³é—­äº†
+	bool IsClosed(){return isclosed_;};//åˆ¤æ–­å®¢æˆ·ç«¯æ˜¯å¦å·²å…³é—­
+    //æ˜¯å¦å¯ç”¨Nagleç®—æ³•
     bool setNoDelay(bool enable);
     bool setKeepAlive(int enable, unsigned int delay);
 
@@ -68,20 +68,20 @@ public:
         return errmsg_.c_str();
     };
 protected:
-    bool init();//³õÊ¼»¯²ÎÊı
-	void closeinl();//ÄÚ²¿ÕæÕıµÄÇåÀíº¯Êı
-    bool run(int status = UV_RUN_DEFAULT);//Æô¶¯ÊÂ¼şÑ­»·
-    static void ConnectThread(void* arg);//ÕæÕıµÄconnectÏß³Ì
+    bool init();//åˆå§‹åŒ–å‚æ•°
+	void closeinl();//å†…éƒ¨çœŸæ­£çš„æ¸…ç†å‡½æ•°
+    bool run(int status = UV_RUN_DEFAULT);//å¯åŠ¨äº‹ä»¶å¾ªç¯
+    static void ConnectThread(void* arg);//çœŸæ­£çš„connectçº¿ç¨‹
 
     static void AfterConnect(uv_connect_t* handle, int status);
     static void AfterRecv(uv_stream_t *client, ssize_t nread, const uv_buf_t* buf);
     static void AfterSend(uv_write_t *req, int status);
     static void AllocBufferForRecv(uv_handle_t *handle, size_t suggested_size, uv_buf_t *buf);
     static void AfterClientClose(uv_handle_t *handle);
-    static void GetPacket(const NetPacket& packethead, const unsigned char* packetdata, void* userdata);//½âÎöÍêÒ»Ö¡ºóµÄ»Øµ÷º¯Êı
-	static void PrepareCB(uv_prepare_t* handle);//prepare½×¶Î»Øµ÷
-	static void CheckCB(uv_check_t* handle);//check½×¶Î»Øµ÷
-	static void IdleCB(uv_idle_t* handle);//idle½×¶Î»Øµ÷
+    static void GetPacket(const NetPacket& packethead, const unsigned char* packetdata, void* userdata);//è§£æå®Œä¸€å¸§åçš„å›è°ƒå‡½æ•°
+	static void PrepareCB(uv_prepare_t* handle);//prepareé˜¶æ®µå›è°ƒ
+	static void CheckCB(uv_check_t* handle);//checké˜¶æ®µå›è°ƒ
+	static void IdleCB(uv_idle_t* handle);//idleé˜¶æ®µå›è°ƒ
 
 private:
     enum {
@@ -90,43 +90,43 @@ private:
         CONNECT_ERROR,
         CONNECT_DIS,
     };
-    uv_tcp_t client_handle_;//¿Í»§¶ËÁ¬½Ó
-	uv_idle_t idle_handle_;//¿ÕÏĞ½×¶Îhandle,Ôİ²»Ê¹ÓÃ
-	uv_prepare_t prepare_handle_;//prepare½×¶Îhandle,ÓÃÓÚ¼ì²â¹Ø±ÕÓëÊÇ·ñĞèÒª·¢ËÍÊı¾İ
-	uv_check_t check_handle_;//check½×¶Îhandle,Ôİ²»Ê¹ÓÃ
+    uv_tcp_t client_handle_;//å®¢æˆ·ç«¯è¿æ¥
+	uv_idle_t idle_handle_;//ç©ºé—²é˜¶æ®µhandle,æš‚ä¸ä½¿ç”¨
+	uv_prepare_t prepare_handle_;//prepareé˜¶æ®µhandle,ç”¨äºæ£€æµ‹å…³é—­ä¸æ˜¯å¦éœ€è¦å‘é€æ•°æ®
+	uv_check_t check_handle_;//checké˜¶æ®µhandle,æš‚ä¸ä½¿ç”¨
     uv_loop_t loop_;
-    bool isclosed_;//ÊÇ·ñÒÑ¹Ø±Õ
-	bool isuseraskforclosed_;//ÓÃ»§ÊÇ·ñ·¢ËÍÃüÁî¹Ø±Õ
+    bool isclosed_;//æ˜¯å¦å·²å…³é—­
+	bool isuseraskforclosed_;//ç”¨æˆ·æ˜¯å¦å‘é€å‘½ä»¤å…³é—­
 
-	uv_thread_t connect_threadhandle_;//Á¬½ÓÏß³Ì
-    uv_connect_t connect_req_;//Á¬½ÓÊ±ÇëÇó
+	uv_thread_t connect_threadhandle_;//è¿æ¥çº¿ç¨‹
+    uv_connect_t connect_req_;//è¿æ¥æ—¶è¯·æ±‚
 
-    int connectstatus_;//Á¬½Ó×´Ì¬
+    int connectstatus_;//è¿æ¥çŠ¶æ€
 
-    //½ÓÊÕÊı¾İ²ÎÊı
-    uv_buf_t readbuffer_;//½ÓËÍÊı¾İµÄbuf
-    Packet readpacket_;//½ÓÊÜbufÊı¾İ½âÎö³É°ü
+    //æ¥æ”¶æ•°æ®å‚æ•°
+    uv_buf_t readbuffer_;//æ¥é€æ•°æ®çš„buf
+    Packet readpacket_;//æ¥å—bufæ•°æ®è§£ææˆåŒ…
 
-    //·¢ËÍÊı¾İ²ÎÊı
-	uv_buf_t writebuffer_;//·¢ËÍÊı¾İµÄbuf
-    uv_mutex_t mutex_writebuf_;//¿ØÖÆwritebuf_list_
-    std::list<uv_write_t*> writereq_list_;//¿ÉÓÃµÄuv_write_t
-    uv_mutex_t mutex_writereq_;//¿ØÖÆwritereq_list_
-    PodCircularBuffer<char> writebuf_list_;//·¢ËÍÊı¾İ¶ÓÁĞ
+    //å‘é€æ•°æ®å‚æ•°
+	uv_buf_t writebuffer_;//å‘é€æ•°æ®çš„buf
+    uv_mutex_t mutex_writebuf_;//æ§åˆ¶writebuf_list_
+    std::list<uv_write_t*> writereq_list_;//å¯ç”¨çš„uv_write_t
+    uv_mutex_t mutex_writereq_;//æ§åˆ¶writereq_list_
+    PodCircularBuffer<char> writebuf_list_;//å‘é€æ•°æ®é˜Ÿåˆ—
 
-    ClientRecvCB recvcb_;//»Øµ÷º¯Êı
-    void* recvcb_userdata_;//»Øµ÷º¯ÊıµÄÓÃ»§Êı¾İ
+    ClientRecvCB recvcb_;//å›è°ƒå‡½æ•°
+    void* recvcb_userdata_;//å›è°ƒå‡½æ•°çš„ç”¨æˆ·æ•°æ®
 
-    TcpCloseCB closedcb_;//¹Ø±Õºó»Øµ÷¸øTCPServer
+    TcpCloseCB closedcb_;//å…³é—­åå›è°ƒç»™TCPServer
     void *closedcb_userdata_;
 
-    std::string connectip_;//Á¬½ÓµÄ·şÎñÆ÷IP
-    int connectport_;//Á¬½ÓµÄ·şÎñÆ÷¶Ë¿ÚºÅ
+    std::string connectip_;//è¿æ¥çš„æœåŠ¡å™¨IP
+    int connectport_;//è¿æ¥çš„æœåŠ¡å™¨ç«¯å£å·
 
-    std::string errmsg_;//´íÎóĞÅÏ¢
+    std::string errmsg_;//é”™è¯¯ä¿¡æ¯
 
-    char PACKET_HEAD;//°üÍ·
-    char PACKET_TAIL;//°üÎ²
+    char PACKET_HEAD;//åŒ…å¤´
+    char PACKET_TAIL;//åŒ…å°¾
 };
 }
 

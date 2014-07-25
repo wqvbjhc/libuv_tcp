@@ -1,4 +1,4 @@
-#include "tcpclient.h"
+ï»¿#include "tcpclient.h"
 #include "log4z.h"
 
 namespace uv
@@ -36,9 +36,9 @@ TCPClient::~TCPClient()
         writebuffer_.len = 0;
     }
     uv_loop_close(&loop_);
-    LOGI("¿Í»§¶Ë("<<this<<")ÍË³ö");
+    LOGI("å®¢æˆ·ç«¯("<<this<<")é€€å‡º");
 }
-//³õÊ¼»¯Óë¹Ø±Õ--·şÎñÆ÷Óë¿Í»§¶ËÒ»ÖÂ
+//åˆå§‹åŒ–ä¸å…³é—­--æœåŠ¡å™¨ä¸å®¢æˆ·ç«¯ä¸€è‡´
 bool TCPClient::init()
 {
     if (!isclosed_) {
@@ -94,7 +94,7 @@ bool TCPClient::init()
     }
     client_handle_.data = this;
 
-    //³õÊ¼»¯writeÏß³Ì²ÎÊı
+    //åˆå§‹åŒ–writeçº¿ç¨‹å‚æ•°
     iret = uv_mutex_init(&mutex_writereq_);
     if (iret) {
         errmsg_ = GetUVError(iret);
@@ -115,7 +115,7 @@ bool TCPClient::init()
     //    errmsg_ = GetUVError(iret);
     //    return false;
     //}
-    LOGI("¿Í»§¶Ë("<<this<<")Init");
+    LOGI("å®¢æˆ·ç«¯("<<this<<")Init");
     isclosed_ = false;
     return true;
 }
@@ -136,11 +136,11 @@ void TCPClient::closeinl()
     uv_mutex_unlock(&mutex_writereq_);
     uv_mutex_destroy(&mutex_writereq_);
 
-    uv_close((uv_handle_t*)&client_handle_,AfterClientClose);//·¢¹ıcloseÃüÁî£¬AfterClientClose´¥·¢²ÅÕæÕıclose,¿ÉÍ¨¹ıIsClosedÅĞ¶ÏÊÇ·ñ¹Ø±Õ
-    uv_close((uv_handle_t*)&check_handle_,AfterClientClose);//·¢¹ıcloseÃüÁî£¬AfterClientClose´¥·¢²ÅÕæÕıclose,¿ÉÍ¨¹ıIsClosedÅĞ¶ÏÊÇ·ñ¹Ø±Õ
-    uv_close((uv_handle_t*)&prepare_handle_,AfterClientClose);//·¢¹ıcloseÃüÁî£¬AfterClientClose´¥·¢²ÅÕæÕıclose,¿ÉÍ¨¹ıIsClosedÅĞ¶ÏÊÇ·ñ¹Ø±Õ
-    uv_close((uv_handle_t*)&idle_handle_,AfterClientClose);//·¢¹ıcloseÃüÁî£¬AfterClientClose´¥·¢²ÅÕæÕıclose,¿ÉÍ¨¹ıIsClosedÅĞ¶ÏÊÇ·ñ¹Ø±Õ
-    LOGI("¿Í»§¶Ë("<<this<<")close");
+    uv_close((uv_handle_t*)&client_handle_,AfterClientClose);//å‘è¿‡closeå‘½ä»¤ï¼ŒAfterClientCloseè§¦å‘æ‰çœŸæ­£close,å¯é€šè¿‡IsClosedåˆ¤æ–­æ˜¯å¦å…³é—­
+    uv_close((uv_handle_t*)&check_handle_,AfterClientClose);//å‘è¿‡closeå‘½ä»¤ï¼ŒAfterClientCloseè§¦å‘æ‰çœŸæ­£close,å¯é€šè¿‡IsClosedåˆ¤æ–­æ˜¯å¦å…³é—­
+    uv_close((uv_handle_t*)&prepare_handle_,AfterClientClose);//å‘è¿‡closeå‘½ä»¤ï¼ŒAfterClientCloseè§¦å‘æ‰çœŸæ­£close,å¯é€šè¿‡IsClosedåˆ¤æ–­æ˜¯å¦å…³é—­
+    uv_close((uv_handle_t*)&idle_handle_,AfterClientClose);//å‘è¿‡closeå‘½ä»¤ï¼ŒAfterClientCloseè§¦å‘æ‰çœŸæ­£close,å¯é€šè¿‡IsClosedåˆ¤æ–­æ˜¯å¦å…³é—­
+    LOGI("å®¢æˆ·ç«¯("<<this<<")close");
 }
 
 bool TCPClient::run(int status)
@@ -154,7 +154,7 @@ bool TCPClient::run(int status)
     return true;
 }
 
-//ÊôĞÔÉèÖÃ--·şÎñÆ÷Óë¿Í»§¶ËÒ»ÖÂ
+//å±æ€§è®¾ç½®--æœåŠ¡å™¨ä¸å®¢æˆ·ç«¯ä¸€è‡´
 bool TCPClient::setNoDelay(bool enable)
 {
     //http://blog.csdn.net/u011133100/article/details/21485983
@@ -178,7 +178,7 @@ bool TCPClient::setKeepAlive(int enable, unsigned int delay)
     return true;
 }
 
-//×÷ÎªclientµÄconnectº¯Êı
+//ä½œä¸ºclientçš„connectå‡½æ•°
 bool TCPClient::Connect(const char* ip, int port)
 {
     closeinl();
@@ -199,8 +199,8 @@ bool TCPClient::Connect(const char* ip, int port)
 		return false;
 	}
 
-	LOGI("¿Í»§¶Ë("<<this<<")start connect to server("<<ip<<":"<<port<<")");
-    iret = uv_thread_create(&connect_threadhandle_, ConnectThread, this);//´¥·¢AfterConnect²ÅËãÕæÕıÁ¬½Ó³É¹¦£¬ËùÒÔÓÃÏß³Ì
+	LOGI("å®¢æˆ·ç«¯("<<this<<")start connect to server("<<ip<<":"<<port<<")");
+    iret = uv_thread_create(&connect_threadhandle_, ConnectThread, this);//è§¦å‘AfterConnectæ‰ç®—çœŸæ­£è¿æ¥æˆåŠŸï¼Œæ‰€ä»¥ç”¨çº¿ç¨‹
     if (iret) {
         errmsg_ = GetUVError(iret);
         LOGE(errmsg_);
@@ -242,8 +242,8 @@ bool TCPClient::Connect6(const char* ip, int port)
 		return false;
 	}
     
-	LOGI("¿Í»§¶Ë("<<this<<")start connect to server("<<ip<<":"<<port<<")");
-    iret = uv_thread_create(&connect_threadhandle_, ConnectThread, this);//´¥·¢AfterConnect²ÅËãÕæÕıÁ¬½Ó³É¹¦£¬ËùÒÔÓÃÏß³Ì
+	LOGI("å®¢æˆ·ç«¯("<<this<<")start connect to server("<<ip<<":"<<port<<")");
+    iret = uv_thread_create(&connect_threadhandle_, ConnectThread, this);//è§¦å‘AfterConnectæ‰ç®—çœŸæ­£è¿æ¥æˆåŠŸï¼Œæ‰€ä»¥ç”¨çº¿ç¨‹
     if (iret) {
         errmsg_ = GetUVError(iret);
         LOGE(errmsg_);
@@ -277,24 +277,24 @@ void TCPClient::AfterConnect(uv_connect_t* handle, int status)
     TCPClient *theclass = (TCPClient*)handle->handle->data;
     if (status) {
         theclass->connectstatus_ = CONNECT_ERROR;
-        LOGE("¿Í»§¶Ë("<<theclass<<") connect error:"<<GetUVError(status));
+        LOGE("å®¢æˆ·ç«¯("<<theclass<<") connect error:"<<GetUVError(status));
         fprintf(stdout,"connect error:%s\n",GetUVError(status));
         return;
     }
 
-    int iret = uv_read_start(handle->handle, AllocBufferForRecv, AfterRecv);//¿Í»§¶Ë¿ªÊ¼½ÓÊÕ·şÎñÆ÷µÄÊı¾İ
+    int iret = uv_read_start(handle->handle, AllocBufferForRecv, AfterRecv);//å®¢æˆ·ç«¯å¼€å§‹æ¥æ”¶æœåŠ¡å™¨çš„æ•°æ®
     if (iret) {
-        LOGE("¿Í»§¶Ë("<<theclass<<") uv_read_start error:"<<GetUVError(status));
+        LOGE("å®¢æˆ·ç«¯("<<theclass<<") uv_read_start error:"<<GetUVError(status));
         fprintf(stdout,"uv_read_start error:%s\n",GetUVError(iret));
         theclass->connectstatus_ = CONNECT_ERROR;
     } else {
         theclass->connectstatus_ = CONNECT_FINISH;
     }
-    LOGI("¿Í»§¶Ë("<<theclass<<")run");
+    LOGI("å®¢æˆ·ç«¯("<<theclass<<")run");
     //fprintf(stdout,"end after connect\n");
 }
 
-//¿Í»§¶ËµÄ·¢ËÍº¯Êı
+//å®¢æˆ·ç«¯çš„å‘é€å‡½æ•°
 int TCPClient::Send(const char* data, std::size_t len)
 {
     if (!data || len <= 0) {
@@ -317,7 +317,7 @@ int TCPClient::Send(const char* data, std::size_t len)
     return iret;
 }
 
-//¿Í»§¶Ë-½ÓÊÕÊı¾İ»Øµ÷º¯Êı
+//å®¢æˆ·ç«¯-æ¥æ”¶æ•°æ®å›è°ƒå‡½æ•°
 void TCPClient::SetRecvCB(ClientRecvCB pfun, void* userdata )
 {
     recvcb_ = pfun;
@@ -326,12 +326,12 @@ void TCPClient::SetRecvCB(ClientRecvCB pfun, void* userdata )
 
 void TCPClient::SetClosedCB( TcpCloseCB pfun, void* userdata )
 {
-    //ÔÚAfterRecv´¥·¢
+    //åœ¨AfterRecvè§¦å‘
     closedcb_ = pfun;
     closedcb_userdata_ = userdata;
 }
 
-//¿Í»§¶Ë·ÖÎö¿Õ¼äº¯Êı
+//å®¢æˆ·ç«¯åˆ†æç©ºé—´å‡½æ•°
 void TCPClient::AllocBufferForRecv(uv_handle_t *handle, size_t suggested_size, uv_buf_t *buf)
 {
     if (!handle->data) {
@@ -347,38 +347,38 @@ void TCPClient::AfterRecv(uv_stream_t *handle, ssize_t nread, const uv_buf_t* bu
     if (!handle->data) {
         return;
     }
-    TCPClient *theclass = (TCPClient*)handle->data;//·şÎñÆ÷µÄrecv´øµÄÊÇTCPClient
+    TCPClient *theclass = (TCPClient*)handle->data;//æœåŠ¡å™¨çš„recvå¸¦çš„æ˜¯TCPClient
     if (nread < 0) {
         if (nread == UV_EOF) {
-            fprintf(stdout,"·şÎñÆ÷Ö÷¶¯¶Ï¿ª,ClientÎª%p\n",handle);
-            LOGW("·şÎñÆ÷Ö÷¶¯¶Ï¿ª");
+            fprintf(stdout,"æœåŠ¡å™¨ä¸»åŠ¨æ–­å¼€,Clientä¸º%p\n",handle);
+            LOGW("æœåŠ¡å™¨ä¸»åŠ¨æ–­å¼€");
         } else if (nread == UV_ECONNRESET) {
-            fprintf(stdout,"·şÎñÆ÷Òì³£¶Ï¿ª,ClientÎª%p\n",handle);
-            LOGW("·şÎñÆ÷Òì³£¶Ï¿ª");
+            fprintf(stdout,"æœåŠ¡å™¨å¼‚å¸¸æ–­å¼€,Clientä¸º%p\n",handle);
+            LOGW("æœåŠ¡å™¨å¼‚å¸¸æ–­å¼€");
         } else {
-            fprintf(stdout,"·şÎñÆ÷Òì³£¶Ï¿ª£¬,ClientÎª%p:%s\n",handle,GetUVError(nread));
-            LOGW("·şÎñÆ÷Òì³£¶Ï¿ª"<<GetUVError(nread));
+            fprintf(stdout,"æœåŠ¡å™¨å¼‚å¸¸æ–­å¼€ï¼Œ,Clientä¸º%p:%s\n",handle,GetUVError(nread));
+            LOGW("æœåŠ¡å™¨å¼‚å¸¸æ–­å¼€"<<GetUVError(nread));
         }
         theclass->closeinl();
         return;
     }
     if (nread > 0) {
-        //client->recvcb_(buf->base,nread,client->userdata_);//¾É·½Ê½-»Øµ÷ÂãÊı¾İ
-        theclass->readpacket_.recvdata((const unsigned char*)buf->base,nread);//ĞÂ·½Ê½-½âÎöÍê°üºóÔÙ»Øµ÷Êı¾İ
+        //client->recvcb_(buf->base,nread,client->userdata_);//æ—§æ–¹å¼-å›è°ƒè£¸æ•°æ®
+        theclass->readpacket_.recvdata((const unsigned char*)buf->base,nread);//æ–°æ–¹å¼-è§£æå®ŒåŒ…åå†å›è°ƒæ•°æ®
     }
 }
 
-//·şÎñÆ÷Óë¿Í»§¶ËÒ»ÖÂ
+//æœåŠ¡å™¨ä¸å®¢æˆ·ç«¯ä¸€è‡´
 void TCPClient::AfterSend(uv_write_t *req, int status)
 {
-    //»ØÊÕreq
+    //å›æ”¶req
     TCPClient *theclass =(TCPClient*)req->data;
     uv_mutex_lock(&theclass->mutex_writereq_);
     theclass->writereq_list_.push_back(req);
     uv_mutex_unlock(&theclass->mutex_writereq_);
 
     if (status < 0) {
-        LOGE("·¢ËÍÊı¾İÓĞÎó:"<<GetUVError(status));
+        LOGE("å‘é€æ•°æ®æœ‰è¯¯:"<<GetUVError(status));
         fprintf(stderr, "send error %s\n", GetUVError(status));
     }
 }
@@ -388,16 +388,16 @@ void TCPClient::AfterClientClose( uv_handle_t *handle )
     TCPClient *theclass = (TCPClient*)handle->data;
     fprintf(stdout,"Close CB handle %p\n",handle);
     if (handle == (uv_handle_t *)&theclass->prepare_handle_) {
-        handle->data = 0;//¸³Öµ0£¬ÓÃÓÚÅĞ¶ÏÊÇ·ñµ÷ÓÃ¹ı
+        handle->data = 0;//èµ‹å€¼0ï¼Œç”¨äºåˆ¤æ–­æ˜¯å¦è°ƒç”¨è¿‡
     }
     if (handle == (uv_handle_t *)&theclass->check_handle_) {
-        handle->data = 0;//¸³Öµ0£¬ÓÃÓÚÅĞ¶ÏÊÇ·ñµ÷ÓÃ¹ı
+        handle->data = 0;//èµ‹å€¼0ï¼Œç”¨äºåˆ¤æ–­æ˜¯å¦è°ƒç”¨è¿‡
     }
     if (handle == (uv_handle_t *)&theclass->client_handle_) {
-        handle->data = 0;//¸³Öµ0£¬ÓÃÓÚÅĞ¶ÏÊÇ·ñµ÷ÓÃ¹ı
+        handle->data = 0;//èµ‹å€¼0ï¼Œç”¨äºåˆ¤æ–­æ˜¯å¦è°ƒç”¨è¿‡
     }
     if (handle == (uv_handle_t *)&theclass->idle_handle_) {
-        handle->data = 0;//¸³Öµ0£¬ÓÃÓÚÅĞ¶ÏÊÇ·ñµ÷ÓÃ¹ı
+        handle->data = 0;//èµ‹å€¼0ï¼Œç”¨äºåˆ¤æ–­æ˜¯å¦è°ƒç”¨è¿‡
     }
     if (theclass->prepare_handle_.data == 0
         && theclass->client_handle_.data == 0
@@ -405,7 +405,7 @@ void TCPClient::AfterClientClose( uv_handle_t *handle )
         && theclass->idle_handle_.data == 0) {
         theclass->isclosed_ = true;
         LOGI("client  had closed.");
-        if (theclass->closedcb_) {//Í¨ÖªTCPServer´Ë¿Í»§¶ËÒÑ¾­¹Ø±Õ
+        if (theclass->closedcb_) {//é€šçŸ¥TCPServeræ­¤å®¢æˆ·ç«¯å·²ç»å…³é—­
             theclass->closedcb_(-1,theclass->closedcb_userdata_);
         }
     }
@@ -429,31 +429,31 @@ void TCPClient::GetPacket( const NetPacket& packethead, const unsigned char* pac
         return;
     }
     TCPClient *theclass = (TCPClient*)userdata;
-    if (theclass->recvcb_) {//°ÑµÃµ½µÄÊı¾İ»Øµ÷¸øÓÃ»§
+    if (theclass->recvcb_) {//æŠŠå¾—åˆ°çš„æ•°æ®å›è°ƒç»™ç”¨æˆ·
         theclass->recvcb_(packethead,packetdata,theclass->recvcb_userdata_);
     }
 }
 
 void TCPClient::PrepareCB( uv_prepare_t* handle )
 {
-    /////////////////////////prepare½×¶Î¼ì²âÓÃ»§ÊÇ·ñ·¢ËÍ¹Ø±ÕÃüÁî£¬ÊÇ·ñÓĞÊı¾İÒª·¢ËÍ
+    /////////////////////////prepareé˜¶æ®µæ£€æµ‹ç”¨æˆ·æ˜¯å¦å‘é€å…³é—­å‘½ä»¤ï¼Œæ˜¯å¦æœ‰æ•°æ®è¦å‘é€
     TCPClient *theclass = (TCPClient*)handle->data;
-    //¼ì²âÊÇ·ñ¹Ø±Õ
+    //æ£€æµ‹æ˜¯å¦å…³é—­
     if (theclass->isuseraskforclosed_) {
         theclass->closeinl();
         theclass->isuseraskforclosed_ = false;
         return;
     }
-    //¼ì²âÊÇ·ñÓĞÊı¾İÒª·¢ËÍ
+    //æ£€æµ‹æ˜¯å¦æœ‰æ•°æ®è¦å‘é€
     uv_mutex_lock(&theclass->mutex_writebuf_);
     if(theclass->writebuf_list_.empty()) {
         uv_mutex_unlock(&theclass->mutex_writebuf_);
-        return;//Ã»ÓĞÊı¾İÒª·¢ËÍ£¬ÍË³ö
+        return;//æ²¡æœ‰æ•°æ®è¦å‘é€ï¼Œé€€å‡º
     }
-    theclass->writebuffer_.len = theclass->writebuf_list_.read(theclass->writebuffer_.base,BUFFER_SIZE);//µÃµ½Òª·¢ËÍµÄÊı¾İ
+    theclass->writebuffer_.len = theclass->writebuf_list_.read(theclass->writebuffer_.base,BUFFER_SIZE);//å¾—åˆ°è¦å‘é€çš„æ•°æ®
     uv_mutex_unlock(&theclass->mutex_writebuf_);
 
-    //»ñÈ¡¿ÉÓÃµÄuv_write_t
+    //è·å–å¯ç”¨çš„uv_write_t
     uv_write_t *req = NULL;
     uv_mutex_lock(&theclass->mutex_writereq_);
     if (theclass->writereq_list_.empty()) {
@@ -465,10 +465,10 @@ void TCPClient::PrepareCB( uv_prepare_t* handle )
         theclass->writereq_list_.pop_front();
         uv_mutex_unlock(&theclass->mutex_writereq_);
     }
-    int iret = uv_write((uv_write_t*)req, (uv_stream_t*)&theclass->client_handle_, &theclass->writebuffer_, 1, AfterSend);//·¢ËÍ
+    int iret = uv_write((uv_write_t*)req, (uv_stream_t*)&theclass->client_handle_, &theclass->writebuffer_, 1, AfterSend);//å‘é€
     if (iret) {
-        theclass->writereq_list_.push_back(req);//·¢ËÍÊ§°Ü£¬²»»áµ÷ÓÃAfterSendº¯Êı£¬ËùÒÔµÃ»ØÊÕreq
-        LOGE("¿Í»§¶Ë("<<theclass<<") send error:"<<GetUVError(iret));
+        theclass->writereq_list_.push_back(req);//å‘é€å¤±è´¥ï¼Œä¸ä¼šè°ƒç”¨AfterSendå‡½æ•°ï¼Œæ‰€ä»¥å¾—å›æ”¶req
+        LOGE("å®¢æˆ·ç«¯("<<theclass<<") send error:"<<GetUVError(iret));
         fprintf(stdout,"send error. %s-%s\n",uv_err_name(iret),uv_strerror(iret));
     }
 }
@@ -476,12 +476,12 @@ void TCPClient::PrepareCB( uv_prepare_t* handle )
 void TCPClient::CheckCB( uv_check_t* handle )
 {
     TCPClient *theclass = (TCPClient*)handle->data;
-    //check½×¶ÎÔİÊ±²»´¦ÀíÈÎºÎÊÂÇé
+    //checké˜¶æ®µæš‚æ—¶ä¸å¤„ç†ä»»ä½•äº‹æƒ…
 }
 
 void TCPClient::IdleCB( uv_idle_t* handle )
 {
     TCPClient *theclass = (TCPClient*)handle->data;
-    //check½×¶ÎÔİÊ±²»´¦ÀíÈÎºÎÊÂÇé
+    //checké˜¶æ®µæš‚æ—¶ä¸å¤„ç†ä»»ä½•äº‹æƒ…
 }
 }

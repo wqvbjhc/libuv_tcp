@@ -1,4 +1,4 @@
-#include "tcpserver.h"
+ï»¿#include "tcpserver.h"
 #include "log4z.h"
 
 namespace uv
@@ -26,7 +26,7 @@ TCPServer::~TCPServer()
     LOGI("tcp server exit.");
 }
 
-//³õÊ¼»¯Óë¹Ø±Õ--·şÎñÆ÷Óë¿Í»§¶ËÒ»ÖÂ
+//åˆå§‹åŒ–ä¸å…³é—­--æœåŠ¡å™¨ä¸å®¢æˆ·ç«¯ä¸€è‡´
 bool TCPServer::init()
 {
     if (!isclosed_) {
@@ -95,7 +95,7 @@ bool TCPServer::init()
         LOGE(errmsg_);
         return false;
     }
-    //iret = uv_tcp_keepalive(&server_, 1, 60);//µ÷ÓÃ´Ëº¯ÊıºóºóĞøº¯Êı»áµ÷ÓÃ³ö´í
+    //iret = uv_tcp_keepalive(&server_, 1, 60);//è°ƒç”¨æ­¤å‡½æ•°ååç»­å‡½æ•°ä¼šè°ƒç”¨å‡ºé”™
     //if (iret) {
     //	errmsg_ = GetUVError(iret);
     //	return false;
@@ -119,9 +119,9 @@ void TCPServer::closeinl()
     uv_mutex_unlock(&mutex_clients_);
 
     uv_close((uv_handle_t*) &server_handle_, AfterServerClose);
-    uv_close((uv_handle_t*)&check_handle_,AfterServerClose);//·¢¹ıcloseÃüÁî£¬AfterClientClose´¥·¢²ÅÕæÕıclose,¿ÉÍ¨¹ıIsClosedÅĞ¶ÏÊÇ·ñ¹Ø±Õ
-    uv_close((uv_handle_t*)&prepare_handle_,AfterServerClose);//·¢¹ıcloseÃüÁî£¬AfterClientClose´¥·¢²ÅÕæÕıclose,¿ÉÍ¨¹ıIsClosedÅĞ¶ÏÊÇ·ñ¹Ø±Õ
-    uv_close((uv_handle_t*)&idle_handle_,AfterServerClose);//·¢¹ıcloseÃüÁî£¬AfterClientClose´¥·¢²ÅÕæÕıclose,¿ÉÍ¨¹ıIsClosedÅĞ¶ÏÊÇ·ñ¹Ø±Õ
+    uv_close((uv_handle_t*)&check_handle_,AfterServerClose);//å‘è¿‡closeå‘½ä»¤ï¼ŒAfterClientCloseè§¦å‘æ‰çœŸæ­£close,å¯é€šè¿‡IsClosedåˆ¤æ–­æ˜¯å¦å…³é—­
+    uv_close((uv_handle_t*)&prepare_handle_,AfterServerClose);//å‘è¿‡closeå‘½ä»¤ï¼ŒAfterClientCloseè§¦å‘æ‰çœŸæ­£close,å¯é€šè¿‡IsClosedåˆ¤æ–­æ˜¯å¦å…³é—­
+    uv_close((uv_handle_t*)&idle_handle_,AfterServerClose);//å‘è¿‡closeå‘½ä»¤ï¼ŒAfterClientCloseè§¦å‘æ‰çœŸæ­£close,å¯é€šè¿‡IsClosedåˆ¤æ–­æ˜¯å¦å…³é—­
     uv_mutex_destroy(&mutex_clients_);
     LOGI("close server");
 }
@@ -137,7 +137,7 @@ bool TCPServer::run(int status)
     }
     return true;
 }
-//ÊôĞÔÉèÖÃ--·şÎñÆ÷Óë¿Í»§¶ËÒ»ÖÂ
+//å±æ€§è®¾ç½®--æœåŠ¡å™¨ä¸å®¢æˆ·ç«¯ä¸€è‡´
 bool TCPServer::setNoDelay(bool enable)
 {
     int iret = uv_tcp_nodelay(&server_handle_, enable ? 1 : 0);
@@ -160,7 +160,7 @@ bool TCPServer::setKeepAlive(int enable, unsigned int delay)
     return true;
 }
 
-//×÷ÎªserverÊ±µÄº¯Êı
+//ä½œä¸ºserveræ—¶çš„å‡½æ•°
 bool TCPServer::bind(const char* ip, int port)
 {
     struct sockaddr_in bind_addr;
@@ -176,7 +176,7 @@ bool TCPServer::bind(const char* ip, int port)
         LOGE(errmsg_);
         return false;
     }
-    //iret = uv_tcp_keepalive(&server_, 1, 60);//µ÷ÓÃ´Ëº¯ÊıºóºóĞøº¯Êı»áµ÷ÓÃ³ö´í
+    //iret = uv_tcp_keepalive(&server_, 1, 60);//è°ƒç”¨æ­¤å‡½æ•°ååç»­å‡½æ•°ä¼šè°ƒç”¨å‡ºé”™
     //if (iret) {
     //	errmsg_ = GetUVError(iret);
     //	return false;
@@ -231,7 +231,7 @@ bool TCPServer::Start( const char *ip, int port )
 	if (!listen(SOMAXCONN)) {
 		return false;
 	}
-    int iret = uv_thread_create(&start_threadhandle_, StartThread, this);//´¥·¢AfterConnect²ÅËãÕæÕıÁ¬½Ó³É¹¦£¬ËùÒÔÓÃÏß³Ì
+    int iret = uv_thread_create(&start_threadhandle_, StartThread, this);//è§¦å‘AfterConnectæ‰ç®—çœŸæ­£è¿æ¥æˆåŠŸï¼Œæ‰€ä»¥ç”¨çº¿ç¨‹
     if (iret) {
         errmsg_ = GetUVError(iret);
         LOGE(errmsg_);
@@ -266,7 +266,7 @@ bool TCPServer::Start6( const char *ip, int port )
 	if (!listen(SOMAXCONN)) {
 		return false;
 	}
-   int iret = uv_thread_create(&start_threadhandle_, StartThread, this);//´¥·¢AfterConnect²ÅËãÕæÕıÁ¬½Ó³É¹¦£¬ËùÒÔÓÃÏß³Ì
+   int iret = uv_thread_create(&start_threadhandle_, StartThread, this);//è§¦å‘AfterConnectæ‰ç®—çœŸæ­£è¿æ¥æˆåŠŸï¼Œæ‰€ä»¥ç”¨çº¿ç¨‹
     if (iret) {
         errmsg_ = GetUVError(iret);
         LOGE(errmsg_);
@@ -294,7 +294,7 @@ void TCPServer::StartThread( void* arg )
     theclass->run();
 }
 
-//·şÎñÆ÷·¢ËÍº¯Êı
+//æœåŠ¡å™¨å‘é€å‡½æ•°
 int TCPServer::Send(int clientid, const char* data, std::size_t len)
 {
     uv_mutex_lock(&mutex_clients_);
@@ -311,7 +311,7 @@ int TCPServer::Send(int clientid, const char* data, std::size_t len)
     return 1;
 }
 
-//·şÎñÆ÷-ĞÂ¿Í»§¶Ëº¯Êı
+//æœåŠ¡å™¨-æ–°å®¢æˆ·ç«¯å‡½æ•°
 void TCPServer::AcceptConnection(uv_stream_t *server, int status)
 {
     if (!server->data) {
@@ -324,9 +324,9 @@ void TCPServer::AcceptConnection(uv_stream_t *server, int status)
         return;
     }
     int clientid = tcpsock->GetAvailaClientID();
-    AcceptClient* cdata = new AcceptClient(clientid, tcpsock->PACKET_HEAD, tcpsock->PACKET_TAIL,&tcpsock->loop_);//uv_close»Øµ÷º¯ÊıÖĞÊÍ·Å
+    AcceptClient* cdata = new AcceptClient(clientid, tcpsock->PACKET_HEAD, tcpsock->PACKET_TAIL,&tcpsock->loop_);//uv_closeå›è°ƒå‡½æ•°ä¸­é‡Šæ”¾
     uv_mutex_lock(&tcpsock->mutex_clients_);
-    tcpsock->clients_list_.insert(std::make_pair(clientid,cdata));//¼ÓÈëµ½Á´½Ó¶ÓÁĞ
+    tcpsock->clients_list_.insert(std::make_pair(clientid,cdata));//åŠ å…¥åˆ°é“¾æ¥é˜Ÿåˆ—
     uv_mutex_unlock(&tcpsock->mutex_clients_);
     cdata->SetClosedCB(SubClientClosed,tcpsock);
     if(!cdata->AcceptByServer((uv_tcp_t*)server)) {
@@ -343,7 +343,7 @@ void TCPServer::AcceptConnection(uv_stream_t *server, int status)
     return;
 }
 
-//·şÎñÆ÷-½ÓÊÕÊı¾İ»Øµ÷º¯Êı
+//æœåŠ¡å™¨-æ¥æ”¶æ•°æ®å›è°ƒå‡½æ•°
 void TCPServer::SetRecvCB(int clientid, ServerRecvCB cb, void *userdata)
 {
     uv_mutex_lock(&mutex_clients_);
@@ -356,7 +356,7 @@ void TCPServer::SetRecvCB(int clientid, ServerRecvCB cb, void *userdata)
 
 
 
-//·şÎñÆ÷-ĞÂÁ´½Ó»Øµ÷º¯Êı
+//æœåŠ¡å™¨-æ–°é“¾æ¥å›è°ƒå‡½æ•°
 void TCPServer::SetNewConnectCB(NewConnectCB cb, void* userdata )
 {
     newconcb_ = cb;
@@ -374,16 +374,16 @@ void TCPServer::AfterServerClose(uv_handle_t *handle)
     TCPServer *theclass = (TCPServer*)handle->data;
     fprintf(stdout,"Close CB handle %p\n",handle);
     if (handle == (uv_handle_t *)&theclass->server_handle_) {
-        handle->data = 0;//¸³Öµ0£¬ÓÃÓÚÅĞ¶ÏÊÇ·ñµ÷ÓÃ¹ı
+        handle->data = 0;//èµ‹å€¼0ï¼Œç”¨äºåˆ¤æ–­æ˜¯å¦è°ƒç”¨è¿‡
     }
     if (handle == (uv_handle_t *)&theclass->prepare_handle_) {
-        handle->data = 0;//¸³Öµ0£¬ÓÃÓÚÅĞ¶ÏÊÇ·ñµ÷ÓÃ¹ı
+        handle->data = 0;//èµ‹å€¼0ï¼Œç”¨äºåˆ¤æ–­æ˜¯å¦è°ƒç”¨è¿‡
     }
     if (handle == (uv_handle_t *)&theclass->check_handle_) {
-        handle->data = 0;//¸³Öµ0£¬ÓÃÓÚÅĞ¶ÏÊÇ·ñµ÷ÓÃ¹ı
+        handle->data = 0;//èµ‹å€¼0ï¼Œç”¨äºåˆ¤æ–­æ˜¯å¦è°ƒç”¨è¿‡
     }
     if (handle == (uv_handle_t *)&theclass->idle_handle_) {
-        handle->data = 0;//¸³Öµ0£¬ÓÃÓÚÅĞ¶ÏÊÇ·ñµ÷ÓÃ¹ı
+        handle->data = 0;//èµ‹å€¼0ï¼Œç”¨äºåˆ¤æ–­æ˜¯å¦è°ƒç”¨è¿‡
     }
     if (theclass->server_handle_.data == 0
         && theclass->prepare_handle_.data == 0
@@ -391,7 +391,7 @@ void TCPServer::AfterServerClose(uv_handle_t *handle)
         && theclass->idle_handle_.data == 0) {
         theclass->isclosed_ = true;
         LOGI("client  had closed.");
-        if (theclass->closedcb_) {//Í¨ÖªTCPServer´Ë¿Í»§¶ËÒÑ¾­¹Ø±Õ
+        if (theclass->closedcb_) {//é€šçŸ¥TCPServeræ­¤å®¢æˆ·ç«¯å·²ç»å…³é—­
             theclass->closedcb_(-1,theclass->closedcb_userdata_);
         }
     }
@@ -424,8 +424,8 @@ void TCPServer::SubClientClosed( int clientid, void* userdata )
     auto itfind = server->clients_list_.find(clientid);
     if (itfind != server->clients_list_.end()) {
         delete itfind->second;
-        LOGI("É¾³ı¿Í»§¶Ë:"<<itfind->first);
-        fprintf(stdout,"É¾³ı¿Í»§¶Ë£º%d\n",itfind->first);
+        LOGI("åˆ é™¤å®¢æˆ·ç«¯:"<<itfind->first);
+        fprintf(stdout,"åˆ é™¤å®¢æˆ·ç«¯ï¼š%d\n",itfind->first);
         server->clients_list_.erase(itfind);
     }
     uv_mutex_unlock(&server->mutex_clients_);
@@ -434,9 +434,9 @@ void TCPServer::SubClientClosed( int clientid, void* userdata )
 
 void TCPServer::PrepareCB( uv_prepare_t* handle )
 {
-    /////////////////////////prepare½×¶Î¼ì²âÓÃ»§ÊÇ·ñ·¢ËÍ¹Ø±ÕÃüÁî
+    /////////////////////////prepareé˜¶æ®µæ£€æµ‹ç”¨æˆ·æ˜¯å¦å‘é€å…³é—­å‘½ä»¤
     TCPServer *theclass = (TCPServer*)handle->data;
-    //¼ì²âÊÇ·ñ¹Ø±Õ
+    //æ£€æµ‹æ˜¯å¦å…³é—­
     if (theclass->isuseraskforclosed_) {
         theclass->closeinl();
         theclass->isuseraskforclosed_ = false;
@@ -447,13 +447,13 @@ void TCPServer::PrepareCB( uv_prepare_t* handle )
 void TCPServer::CheckCB( uv_check_t* handle )
 {
     TCPServer *theclass = (TCPServer*)handle->data;
-    //check½×¶ÎÔİÊ±²»´¦ÀíÈÎºÎÊÂÇé
+    //checké˜¶æ®µæš‚æ—¶ä¸å¤„ç†ä»»ä½•äº‹æƒ…
 }
 
 void TCPServer::IdleCB( uv_idle_t* handle )
 {
     TCPServer *theclass = (TCPServer*)handle->data;
-    //check½×¶ÎÔİÊ±²»´¦ÀíÈÎºÎÊÂÇé
+    //checké˜¶æ®µæš‚æ—¶ä¸å¤„ç†ä»»ä½•äº‹æƒ…
 }
 
 /*****************************************AcceptClient*************************************************************/
@@ -510,7 +510,7 @@ bool AcceptClient::init( char packhead, char packtail )
     client_handle_.data = this;
 
 
-    //³õÊ¼»¯writeÏß³Ì²ÎÊı
+    //åˆå§‹åŒ–writeçº¿ç¨‹å‚æ•°
     iret = uv_mutex_init(&mutex_writereq_);
     if (iret) {
         errmsg_ = GetUVError(iret);
@@ -524,7 +524,7 @@ bool AcceptClient::init( char packhead, char packtail )
         return false;
     }
 
-    //Æô¶¯read·â×°Àà
+    //å¯åŠ¨readå°è£…ç±»
     readpacket_.SetPacketCB(GetPacket,this);
     readpacket_.Start(packhead,packtail);
 
@@ -537,7 +537,7 @@ void AcceptClient::closeinl()
     if (isclosed_) {
         return;
     }
-    //Í£Ö¹read·â×°Àà
+    //åœæ­¢readå°è£…ç±»
     readpacket_.Stop();
     uv_mutex_destroy(&mutex_writebuf_);
 
@@ -550,23 +550,23 @@ void AcceptClient::closeinl()
     uv_mutex_destroy(&mutex_writereq_);
 
     uv_close((uv_handle_t*)&client_handle_,AfterClientClose);
-    uv_close((uv_handle_t*)&prepare_handle_,AfterClientClose);//·¢¹ıcloseÃüÁî£¬AfterClientClose´¥·¢²ÅÕæÕıclose,¿ÉÍ¨¹ıIsClosedÅĞ¶ÏÊÇ·ñ¹Ø±Õ
-    LOGI("¿Í»§¶Ë("<<this<<")close");
+    uv_close((uv_handle_t*)&prepare_handle_,AfterClientClose);//å‘è¿‡closeå‘½ä»¤ï¼ŒAfterClientCloseè§¦å‘æ‰çœŸæ­£close,å¯é€šè¿‡IsClosedåˆ¤æ–­æ˜¯å¦å…³é—­
+    LOGI("å®¢æˆ·ç«¯("<<this<<")close");
 }
 
-//»Øµ÷Ò»Ö¡Êı¾İ¸øÓÃ»§
+//å›è°ƒä¸€å¸§æ•°æ®ç»™ç”¨æˆ·
 void AcceptClient::GetPacket( const NetPacket& packethead, const unsigned char* packetdata, void* userdata )
 {
     if (!userdata) {
         return;
     }
     AcceptClient *theclass = (AcceptClient*)userdata;
-    if (theclass->recvcb_) {//°ÑµÃµ½µÄÊı¾İ»Øµ÷¸øÓÃ»§
+    if (theclass->recvcb_) {//æŠŠå¾—åˆ°çš„æ•°æ®å›è°ƒç»™ç”¨æˆ·
         theclass->recvcb_(theclass->client_id_,packethead,packetdata,userdata);
     }
 }
 
-//·¢ËÍÊı¾İ£º°ÑÊı¾İÑ¹Èë¶ÓÁĞ£¬ÓÉWriteThreadÏß³Ì¸ºÔğ·¢ËÍ£¬ËùÒÔÎŞ·µ»ØÖµ
+//å‘é€æ•°æ®ï¼šæŠŠæ•°æ®å‹å…¥é˜Ÿåˆ—ï¼Œç”±WriteThreadçº¿ç¨‹è´Ÿè´£å‘é€ï¼Œæ‰€ä»¥æ— è¿”å›å€¼
 int AcceptClient::Send( const char* data, std::size_t len )
 {
     if (!data || len <= 0) {
@@ -591,13 +591,13 @@ int AcceptClient::Send( const char* data, std::size_t len )
 
 void AcceptClient::AfterSend( uv_write_t *req, int status )
 {
-    //»ØÊÕuv_write_t
+    //å›æ”¶uv_write_t
     AcceptClient *theclass = (AcceptClient*)req->data;
     uv_mutex_lock(&theclass->mutex_writereq_);
     theclass->writereq_list_.push_back(req);
     uv_mutex_unlock(&theclass->mutex_writereq_);
     if (status < 0) {
-        LOGE("·¢ËÍÊı¾İÓĞÎó:"<<GetUVError(status));
+        LOGE("å‘é€æ•°æ®æœ‰è¯¯:"<<GetUVError(status));
         fprintf(stderr, "Write error %s.%s\n",uv_err_name(status),uv_strerror(status));
     }
 }
@@ -610,7 +610,7 @@ bool AcceptClient::AcceptByServer( uv_tcp_t* server )
         LOGE(errmsg_);
         return false;
     }
-    iret = uv_read_start((uv_stream_t*)&client_handle_, AllocBufferForRecv, AfterRecv);//·şÎñÆ÷¿ªÊ¼½ÓÊÕ¿Í»§¶ËµÄÊı¾İ
+    iret = uv_read_start((uv_stream_t*)&client_handle_, AllocBufferForRecv, AfterRecv);//æœåŠ¡å™¨å¼€å§‹æ¥æ”¶å®¢æˆ·ç«¯çš„æ•°æ®
     if (iret) {
         errmsg_ = GetUVError(iret);
         LOGE(errmsg_);
@@ -619,7 +619,7 @@ bool AcceptClient::AcceptByServer( uv_tcp_t* server )
     return true;
 }
 
-//·ÖÅä¿Õ¼ä½ÓÊÕÊı¾İ
+//åˆ†é…ç©ºé—´æ¥æ”¶æ•°æ®
 void AcceptClient::AllocBufferForRecv(uv_handle_t *handle, size_t suggested_size, uv_buf_t *buf)
 {
     if (!handle->data) {
@@ -628,30 +628,30 @@ void AcceptClient::AllocBufferForRecv(uv_handle_t *handle, size_t suggested_size
     AcceptClient *client = (AcceptClient*)handle->data;
     *buf = client->readbuffer_;
 }
-//½ÓÊÕÊı¾İ»Øµ÷
+//æ¥æ”¶æ•°æ®å›è°ƒ
 void AcceptClient::AfterRecv(uv_stream_t *handle, ssize_t nread, const uv_buf_t* buf)
 {
     if (!handle->data) {
         return;
     }
-    AcceptClient *theclass = (AcceptClient*)handle->data;//·şÎñÆ÷µÄrecv´øµÄÊÇclientdata
+    AcceptClient *theclass = (AcceptClient*)handle->data;//æœåŠ¡å™¨çš„recvå¸¦çš„æ˜¯clientdata
     if (nread < 0) {/* Error or EOF */
         if (nread == UV_EOF) {
-            fprintf(stdout,"¿Í»§¶Ë(%d)Ö÷¶¯¶Ï¿ª\n",theclass->client_id_);
-            LOGW("¿Í»§¶Ë("<<theclass->client_id_<<")Ö÷¶¯¶Ï¿ª");
+            fprintf(stdout,"å®¢æˆ·ç«¯(%d)ä¸»åŠ¨æ–­å¼€\n",theclass->client_id_);
+            LOGW("å®¢æˆ·ç«¯("<<theclass->client_id_<<")ä¸»åŠ¨æ–­å¼€");
         } else if (nread == UV_ECONNRESET) {
-            fprintf(stdout,"¿Í»§¶Ë(%d)Òì³£¶Ï¿ª\n",theclass->client_id_);
-            LOGW("¿Í»§¶Ë("<<theclass->client_id_<<")Òì³£¶Ï¿ª");
+            fprintf(stdout,"å®¢æˆ·ç«¯(%d)å¼‚å¸¸æ–­å¼€\n",theclass->client_id_);
+            LOGW("å®¢æˆ·ç«¯("<<theclass->client_id_<<")å¼‚å¸¸æ–­å¼€");
         } else {
             fprintf(stdout,"%s\n",GetUVError(nread));
-            LOGW("¿Í»§¶Ë("<<theclass->client_id_<<")Òì³£¶Ï¿ª£º"<<GetUVError(nread));
+            LOGW("å®¢æˆ·ç«¯("<<theclass->client_id_<<")å¼‚å¸¸æ–­å¼€ï¼š"<<GetUVError(nread));
         }
         theclass->closeinl();
         return;
     } else if (0 == nread)  {/* Everything OK, but nothing read. */
 
     } else {
-        theclass->readpacket_.recvdata((const unsigned char*)buf->base,nread);//ĞÂ·½Ê½-½âÎöÍê°üºóÔÙ»Øµ÷Êı¾İ
+        theclass->readpacket_.recvdata((const unsigned char*)buf->base,nread);//æ–°æ–¹å¼-è§£æå®ŒåŒ…åå†å›è°ƒæ•°æ®
     }
 }
 
@@ -659,16 +659,16 @@ void AcceptClient::AfterClientClose( uv_handle_t *handle )
 {
     AcceptClient *theclass = (AcceptClient*)handle->data;
     if (handle == (uv_handle_t *)&theclass->prepare_handle_) {
-        handle->data = 0;//¸³Öµ0£¬ÓÃÓÚÅĞ¶ÏÊÇ·ñµ÷ÓÃ¹ı
+        handle->data = 0;//èµ‹å€¼0ï¼Œç”¨äºåˆ¤æ–­æ˜¯å¦è°ƒç”¨è¿‡
     }
     if (handle == (uv_handle_t *)&theclass->client_handle_) {
-        handle->data = 0;//¸³Öµ0£¬ÓÃÓÚÅĞ¶ÏÊÇ·ñµ÷ÓÃ¹ı
+        handle->data = 0;//èµ‹å€¼0ï¼Œç”¨äºåˆ¤æ–­æ˜¯å¦è°ƒç”¨è¿‡
     }
     if (theclass->prepare_handle_.data == 0
         && theclass->client_handle_.data == 0) {
         theclass->isclosed_ = true;
         LOGI("client  had closed.");
-        if (theclass->closedcb_) {//Í¨ÖªTCPServer´Ë¿Í»§¶ËÒÑ¾­¹Ø±Õ
+        if (theclass->closedcb_) {//é€šçŸ¥TCPServeræ­¤å®¢æˆ·ç«¯å·²ç»å…³é—­
             theclass->closedcb_(-1,theclass->closedcb_userdata_);
         }
     }
@@ -676,14 +676,14 @@ void AcceptClient::AfterClientClose( uv_handle_t *handle )
 
 void AcceptClient::SetRecvCB( ServerRecvCB pfun, void* userdata )
 {
-    //ÔÚGetPacket´¥·¢
+    //åœ¨GetPacketè§¦å‘
     recvcb_ = pfun;
     recvcb_userdata_ = userdata;
 }
 
 void AcceptClient::SetClosedCB( TcpCloseCB pfun, void* userdata )
 {
-    //ÔÚAfterRecv´¥·¢
+    //åœ¨AfterRecvè§¦å‘
     closedcb_ = pfun;
     closedcb_userdata_ = userdata;
 }
@@ -691,24 +691,24 @@ void AcceptClient::SetClosedCB( TcpCloseCB pfun, void* userdata )
 
 void AcceptClient::PrepareCB( uv_prepare_t* handle )
 {
-    /////////////////////////prepare½×¶Î¼ì²âÓÃ»§ÊÇ·ñ·¢ËÍ¹Ø±ÕÃüÁî£¬ÊÇ·ñÓĞÊı¾İÒª·¢ËÍ
+    /////////////////////////prepareé˜¶æ®µæ£€æµ‹ç”¨æˆ·æ˜¯å¦å‘é€å…³é—­å‘½ä»¤ï¼Œæ˜¯å¦æœ‰æ•°æ®è¦å‘é€
     AcceptClient *theclass = (AcceptClient*)handle->data;
-    //¼ì²âÊÇ·ñ¹Ø±Õ
+    //æ£€æµ‹æ˜¯å¦å…³é—­
     if (theclass->isuseraskforclosed_) {
         theclass->closeinl();
         theclass->isuseraskforclosed_ = false;
         return;
     }
-    //¼ì²âÊÇ·ñÓĞÊı¾İÒª·¢ËÍ
+    //æ£€æµ‹æ˜¯å¦æœ‰æ•°æ®è¦å‘é€
     uv_mutex_lock(&theclass->mutex_writebuf_);
     if(theclass->writebuf_list_.empty()) {
         uv_mutex_unlock(&theclass->mutex_writebuf_);
-        return;//Ã»ÓĞÊı¾İÒª·¢ËÍ£¬ÍË³ö
+        return;//æ²¡æœ‰æ•°æ®è¦å‘é€ï¼Œé€€å‡º
     }
-    theclass->writebuffer_.len = theclass->writebuf_list_.read(theclass->writebuffer_.base,BUFFER_SIZE);//µÃµ½Òª·¢ËÍµÄÊı¾İ
+    theclass->writebuffer_.len = theclass->writebuf_list_.read(theclass->writebuffer_.base,BUFFER_SIZE);//å¾—åˆ°è¦å‘é€çš„æ•°æ®
     uv_mutex_unlock(&theclass->mutex_writebuf_);
 
-    //»ñÈ¡¿ÉÓÃµÄuv_write_t
+    //è·å–å¯ç”¨çš„uv_write_t
     uv_write_t *req = NULL;
     uv_mutex_lock(&theclass->mutex_writereq_);
     if (theclass->writereq_list_.empty()) {
@@ -720,10 +720,10 @@ void AcceptClient::PrepareCB( uv_prepare_t* handle )
         theclass->writereq_list_.pop_front();
         uv_mutex_unlock(&theclass->mutex_writereq_);
     }
-    int iret = uv_write((uv_write_t*)req, (uv_stream_t*)&theclass->client_handle_, &theclass->writebuffer_, 1, AfterSend);//·¢ËÍ
+    int iret = uv_write((uv_write_t*)req, (uv_stream_t*)&theclass->client_handle_, &theclass->writebuffer_, 1, AfterSend);//å‘é€
     if (iret) {
-        theclass->writereq_list_.push_back(req);//·¢ËÍÊ§°Ü£¬²»»áµ÷ÓÃAfterSendº¯Êı£¬ËùÒÔµÃ»ØÊÕreq
-        LOGE("¿Í»§¶Ë("<<theclass<<") send error:"<<GetUVError(iret));
+        theclass->writereq_list_.push_back(req);//å‘é€å¤±è´¥ï¼Œä¸ä¼šè°ƒç”¨AfterSendå‡½æ•°ï¼Œæ‰€ä»¥å¾—å›æ”¶req
+        LOGE("å®¢æˆ·ç«¯("<<theclass<<") send error:"<<GetUVError(iret));
         fprintf(stdout,"send error. %s-%s\n",uv_err_name(iret),uv_strerror(iret));
     }
 }
