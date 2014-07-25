@@ -10,8 +10,11 @@ Packet pac;
 pac.SetPacketCB(GetPacket,&serpac);
 packet.Start(0x01,0x02);
 //socket有数据到达时，调用packet.recvdata((const unsigned char*)buf,bufsize); 只要足够一帧它会触发GetPacket
+
 * @author   陈吉宏, wqvbjhc@gmail.com
-* @date     2014-5-21
+* @date     2014-05-21
+* @mod      2014-07-24 phata 添加GetUVError，PacketData两个公共函数. TCP Server Client会调用到
+                             添加TCP编程使用到的回调函数定义
 ****************************************/
 #ifndef PACKET_H
 #define PACKET_H
@@ -48,13 +51,16 @@ class Packet
 public:
     Packet():packet_cb_(NULL),packetcb_userdata_(NULL)
         ,circulebuffer_(BUFFER_SIZE)
-        ,uvthread_(0) {
+        ,uvthread_(0)
+    {
     }
-    virtual ~Packet() {
-		Stop();
+    virtual ~Packet()
+    {
+        Stop();
     }
 
-    bool Start(char packhead, char packtail) {
+    bool Start(char packhead, char packtail)
+    {
         if (uvthread_) {
             return true;
         }
@@ -64,9 +70,10 @@ public:
 
         is_uvthread_stop_= false;
         uv_thread_create(&uvthread_,ParseThread,this);//启动解析线程
-		return true;
+        return true;
     }
-    void Stop() {
+    void Stop()
+    {
         if (0 == uvthread_) {//通过uvthread_判断
             return;
         }
@@ -77,26 +84,29 @@ public:
         uv_mutex_destroy(&uvmutex_cirbuf_);
     }
 public:
-    void recvdata(const unsigned char* data, int len) { //接收到数据，把数据保存在circulebuffer_
-		int iret = 0;
-		while(1) {
-			uv_mutex_lock(&uvmutex_cirbuf_);
-			iret +=circulebuffer_.write(data+iret,len-iret);
-			uv_mutex_unlock(&uvmutex_cirbuf_);
-			if (iret < len) {
-				ThreadSleep(100);
-				continue;
-			} else {
-				break;
-			}
-		}
+    void recvdata(const unsigned char* data, int len)   //接收到数据，把数据保存在circulebuffer_
+    {
+        int iret = 0;
+        while(1) {
+            uv_mutex_lock(&uvmutex_cirbuf_);
+            iret +=circulebuffer_.write(data+iret,len-iret);
+            uv_mutex_unlock(&uvmutex_cirbuf_);
+            if (iret < len) {
+                ThreadSleep(100);
+                continue;
+            } else {
+                break;
+            }
+        }
     }
-    void SetPacketCB(GetFullPacket pfun, void *userdata) {
+    void SetPacketCB(GetFullPacket pfun, void *userdata)
+    {
         packet_cb_ = pfun;
         packetcb_userdata_ = userdata;
     }
 protected:
-    static void ParseThread(void *arg) {
+    static void ParseThread(void *arg)
+    {
         Packet *theclass = (Packet*)arg;
         if (!theclass) {
             return;
@@ -186,7 +196,7 @@ protected:
             while(getdatalen < thread_netpacket.datalen+1 && !theclass->is_uvthread_stop_) {
                 //fprintf(stdout,"Get data from while. %d total %d\n",getdatalen,thread_netpacket.datalen+1);
                 ThreadSleep(100);
-				fprintf(stdout,"get packet data %d-%d\n",getdatalen,thread_netpacket.datalen+1);
+                fprintf(stdout,"get packet data %d-%d\n",getdatalen,thread_netpacket.datalen+1);
                 uv_mutex_lock(&theclass->uvmutex_cirbuf_);
                 getdatalen += theclass->circulebuffer_.read((unsigned char*)thread_packetdata.base+getdatalen,thread_netpacket.datalen+1-getdatalen);
                 uv_mutex_unlock(&theclass->uvmutex_cirbuf_);
@@ -216,7 +226,7 @@ protected:
             MD5_Final(md5str,&md5);
             if (memcmp(thread_netpacket.check,md5str,MD5_DIGEST_LENGTH) != 0) {
                 //{
-                    fprintf(stdout,"读取%d数据,包头位于%d. 校验码不合法\n",truepacketlen,headpos,thread_packetdata.base[thread_netpacket.datalen]);
+                fprintf(stdout,"读取%d数据,包头位于%d. 校验码不合法\n",truepacketlen,headpos,thread_packetdata.base[thread_netpacket.datalen]);
                 //    fprintf(stdout,"recvmd5:");
                 //    for (int i=0; i< MD5_DIGEST_LENGTH; ++i) {
                 //        fprintf(stdout,"%02x",thread_netpacket.check[i]);
@@ -252,8 +262,8 @@ private:
     uv_mutex_t uvmutex_cirbuf_;//对circulebuffer_进行保护
     PodCircularBuffer<unsigned char> circulebuffer_;//接收数据的缓冲区
 
-	unsigned char HEAD;
-	unsigned char TAIL;
+    unsigned char HEAD;
+    unsigned char TAIL;
 
     uv_thread_t uvthread_;//解析数据线程ID
     bool  is_uvthread_stop_;//
@@ -264,4 +274,60 @@ private:// no copy
     Packet(const Packet &);
     Packet& operator = (const Packet &);
 };
+
+/***********************************************辅助函数***************************************************/
+/*****************************
+* @brief   把数据组合成NetPacket格式的二进制流，可直接发送。
+* @param   packet --NetPacket包，里面的version,header,tail,type,datalen,reserve必须提前赋值，该函数会计算check的值。然后组合成二进制流返回
+	       data   --要发送的实际数据
+* @return  std::string --返回的二进制流。地址：&string[0],长度：string.length()
+******************************/
+inline std::string PacketData(NetPacket& packet, const unsigned char* data)
+{
+    unsigned char md5str[MD5_DIGEST_LENGTH];
+    MD5_CTX md5;
+    MD5_Init(&md5);
+    MD5_Update(&md5,data,packet.datalen);
+    MD5_Final(md5str,&md5);
+    memcpy(packet.check,md5str,MD5_DIGEST_LENGTH);
+
+    unsigned char packchar[NET_PACKAGE_HEADLEN];
+    NetPacketToChar(packet,packchar);
+
+    std::string retstr;
+    retstr.append(1,packet.header);
+    retstr.append((const char*)packchar,NET_PACKAGE_HEADLEN);
+    retstr.append((const char*)data,packet.datalen);
+    retstr.append(1,packet.tail);
+    return std::move(retstr);
+}
+
+/*****************************
+* @brief   获取libuv错误码对应的错误信息
+* @param   retcode --libuv函数错误码(不等于0的返回值)
+* @return  std::string --返回的详细错误说明
+******************************/
+inline std::string GetUVError(int retcode)
+{
+    std::string err;
+    err = uv_err_name(retcode);
+    err +=":";
+    err += uv_strerror(retcode);
+    return std::move(err);
+}
+
+//客户端或服务器关闭的回调函数
+//服务器：当clientid为-1时，表现服务器的关闭事件
+//客户端：clientid无效，永远为-1
+typedef void (*TcpCloseCB)(int clientid, void* userdata);
+
+//TCPServer接收到新客户端回调给用户
+typedef void (*NewConnectCB)(int clientid, void* userdata);
+
+//TCPServer接收到客户端数据回调给用户
+typedef void (*ServerRecvCB)(int clientid, const NetPacket& packethead, const unsigned char* buf, void* userdata);
+
+//TCPClient接收到服务器数据回调给用户
+typedef void (*ClientRecvCB)(const NetPacket& packethead, const unsigned char* buf, void* userdata);
+
 #endif//PACKET_H
