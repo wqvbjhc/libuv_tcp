@@ -16,6 +16,11 @@ TCPClient::TCPClient(char packhead, char packtail)
         LOGE(errmsg_);
         fprintf(stdout,"init loop error: %s\n",errmsg_.c_str());
     }
+    iret = uv_mutex_init(&mutex_writebuf_);
+    if (iret) {
+        errmsg_ = GetUVError(iret);
+        LOGE(errmsg_);
+    }
     readbuffer_ = uv_buf_init((char*) malloc(BUFFER_SIZE), BUFFER_SIZE);
     writebuffer_ = uv_buf_init((char*) malloc(BUFFER_SIZE), BUFFER_SIZE);
     connect_req_.data = this;
@@ -24,7 +29,8 @@ TCPClient::TCPClient(char packhead, char packtail)
 
 TCPClient::~TCPClient()
 {
-    closeinl();
+    Close();
+    uv_thread_join(&connect_threadhandle_);//libuv事件循环已退出
     if (readbuffer_.base) {
         free(readbuffer_.base);
         readbuffer_.base = NULL;
@@ -36,6 +42,12 @@ TCPClient::~TCPClient()
         writebuffer_.len = 0;
     }
     uv_loop_close(&loop_);
+    uv_mutex_destroy(&mutex_writebuf_);
+    for (auto it = writereq_list_.begin(); it != writereq_list_.end(); ++it) {
+        free(*it);
+    }
+    writereq_list_.clear();
+
     LOGI("客户端("<<this<<")退出");
 }
 //初始化与关闭--服务器与客户端一致
@@ -94,20 +106,6 @@ bool TCPClient::init()
     }
     client_handle_.data = this;
 
-    //初始化write线程参数
-    iret = uv_mutex_init(&mutex_writereq_);
-    if (iret) {
-        errmsg_ = GetUVError(iret);
-        LOGE(errmsg_);
-        return false;
-    }
-    iret = uv_mutex_init(&mutex_writebuf_);
-    if (iret) {
-        errmsg_ = GetUVError(iret);
-        LOGE(errmsg_);
-        return false;
-    }
-
     readpacket_.SetPacketCB(GetPacket,this);
     readpacket_.Start(PACKET_HEAD,PACKET_TAIL);
     //iret = uv_tcp_keepalive(&client_, 1, 60);//
@@ -126,15 +124,6 @@ void TCPClient::closeinl()
         return;
     }
     readpacket_.Stop();
-	uv_mutex_destroy(&mutex_writebuf_);
-
-    uv_mutex_lock(&mutex_writereq_);
-    for (auto it= writereq_list_.begin(); it!=writereq_list_.end(); ++it) {
-        free(*it);
-    }
-    writereq_list_.clear();
-    uv_mutex_unlock(&mutex_writereq_);
-    uv_mutex_destroy(&mutex_writereq_);
 
     uv_close((uv_handle_t*)&client_handle_,AfterClientClose);//发过close命令，AfterClientClose触发才真正close,可通过IsClosed判断是否关闭
     uv_close((uv_handle_t*)&check_handle_,AfterClientClose);//发过close命令，AfterClientClose触发才真正close,可通过IsClosed判断是否关闭
@@ -185,21 +174,21 @@ bool TCPClient::Connect(const char* ip, int port)
     init();
     connectip_ = ip;
     connectport_ = port;
-	struct sockaddr_in bind_addr;
-	int iret = uv_ip4_addr(connectip_.c_str(), connectport_, &bind_addr);
-	if (iret) {
-		errmsg_ = GetUVError(iret);
-		LOGE(errmsg_);
-		return false;
-	}
-	iret = uv_tcp_connect(&connect_req_, &client_handle_, (const sockaddr*)&bind_addr, AfterConnect);
-	if (iret) {
-		errmsg_ = GetUVError(iret);
-		LOGE(errmsg_);
-		return false;
-	}
+    struct sockaddr_in bind_addr;
+    int iret = uv_ip4_addr(connectip_.c_str(), connectport_, &bind_addr);
+    if (iret) {
+        errmsg_ = GetUVError(iret);
+        LOGE(errmsg_);
+        return false;
+    }
+    iret = uv_tcp_connect(&connect_req_, &client_handle_, (const sockaddr*)&bind_addr, AfterConnect);
+    if (iret) {
+        errmsg_ = GetUVError(iret);
+        LOGE(errmsg_);
+        return false;
+    }
 
-	LOGI("客户端("<<this<<")start connect to server("<<ip<<":"<<port<<")");
+    LOGI("客户端("<<this<<")start connect to server("<<ip<<":"<<port<<")");
     iret = uv_thread_create(&connect_threadhandle_, ConnectThread, this);//触发AfterConnect才算真正连接成功，所以用线程
     if (iret) {
         errmsg_ = GetUVError(iret);
@@ -209,11 +198,7 @@ bool TCPClient::Connect(const char* ip, int port)
     int wait_count = 0;
     while ( connectstatus_ == CONNECT_DIS) {
         //fprintf(stdout,"client(%p) wait, connect status %d\n",this,connectstatus_);
-#if defined (WIN32) || defined(_WIN32)
-        Sleep(100);
-#else
-        usleep((100) * 1000);
-#endif
+        ThreadSleep(100);
         if(++wait_count > 100) {
             connectstatus_ = CONNECT_TIMEOUT;
             break;
@@ -228,21 +213,21 @@ bool TCPClient::Connect6(const char* ip, int port)
     init();
     connectip_ = ip;
     connectport_ = port;
-	struct sockaddr_in6 bind_addr;
-	int iret = uv_ip6_addr(connectip_.c_str(), connectport_, &bind_addr);
-	if (iret) {
-		errmsg_ = GetUVError(iret);
-		LOGE(errmsg_);
-		return false;
-	}
-	iret = uv_tcp_connect(&connect_req_, &client_handle_, (const sockaddr*)&bind_addr, AfterConnect);
-	if (iret) {
-		errmsg_ = GetUVError(iret);
-		LOGE(errmsg_);
-		return false;
-	}
-    
-	LOGI("客户端("<<this<<")start connect to server("<<ip<<":"<<port<<")");
+    struct sockaddr_in6 bind_addr;
+    int iret = uv_ip6_addr(connectip_.c_str(), connectport_, &bind_addr);
+    if (iret) {
+        errmsg_ = GetUVError(iret);
+        LOGE(errmsg_);
+        return false;
+    }
+    iret = uv_tcp_connect(&connect_req_, &client_handle_, (const sockaddr*)&bind_addr, AfterConnect);
+    if (iret) {
+        errmsg_ = GetUVError(iret);
+        LOGE(errmsg_);
+        return false;
+    }
+
+    LOGI("客户端("<<this<<")start connect to server("<<ip<<":"<<port<<")");
     iret = uv_thread_create(&connect_threadhandle_, ConnectThread, this);//触发AfterConnect才算真正连接成功，所以用线程
     if (iret) {
         errmsg_ = GetUVError(iret);
@@ -251,12 +236,7 @@ bool TCPClient::Connect6(const char* ip, int port)
     }
     int wait_count = 0;
     while ( connectstatus_ == CONNECT_DIS) {
-        //fprintf(stdout,"client(%p) wait, connect status %d\n",this,connectstatus_);
-#if defined (WIN32) || defined(_WIN32)
-        Sleep(100);
-#else
-        usleep((100) * 1000);
-#endif
+        ThreadSleep(100);
         if(++wait_count > 100) {
             connectstatus_ = CONNECT_TIMEOUT;
             break;
@@ -303,7 +283,7 @@ int TCPClient::Send(const char* data, std::size_t len)
         return 0;
     }
     size_t iret = 0;
-    while(1) {
+    while(!isuseraskforclosed_) {
         uv_mutex_lock(&mutex_writebuf_);
         iret +=writebuf_list_.write(data+iret,len-iret);
         uv_mutex_unlock(&mutex_writebuf_);
@@ -359,11 +339,10 @@ void TCPClient::AfterRecv(uv_stream_t *handle, ssize_t nread, const uv_buf_t* bu
             fprintf(stdout,"服务器异常断开，,Client为%p:%s\n",handle,GetUVError(nread));
             LOGW("服务器异常断开"<<GetUVError(nread));
         }
-        theclass->closeinl();
+        theclass->Close();
         return;
     }
     if (nread > 0) {
-        //client->recvcb_(buf->base,nread,client->userdata_);//旧方式-回调裸数据
         theclass->readpacket_.recvdata((const unsigned char*)buf->base,nread);//新方式-解析完包后再回调数据
     }
 }
@@ -373,9 +352,7 @@ void TCPClient::AfterSend(uv_write_t *req, int status)
 {
     //回收req
     TCPClient *theclass =(TCPClient*)req->data;
-    uv_mutex_lock(&theclass->mutex_writereq_);
     theclass->writereq_list_.push_back(req);
-    uv_mutex_unlock(&theclass->mutex_writereq_);
 
     if (status < 0) {
         LOGE("发送数据有误:"<<GetUVError(status));
@@ -425,9 +402,7 @@ void TCPClient::StartLog( const char* logpath /*= nullptr*/ )
 
 void TCPClient::GetPacket( const NetPacket& packethead, const unsigned char* packetdata, void* userdata )
 {
-    if (!userdata) {
-        return;
-    }
+    assert(userdata);
     TCPClient *theclass = (TCPClient*)userdata;
     if (theclass->recvcb_) {//把得到的数据回调给用户
         theclass->recvcb_(packethead,packetdata,theclass->recvcb_userdata_);
@@ -455,15 +430,15 @@ void TCPClient::PrepareCB( uv_prepare_t* handle )
 
     //获取可用的uv_write_t
     uv_write_t *req = NULL;
-    uv_mutex_lock(&theclass->mutex_writereq_);
+    //uv_mutex_lock(&theclass->mutex_writereq_);
     if (theclass->writereq_list_.empty()) {
-        uv_mutex_unlock(&theclass->mutex_writereq_);
+        //uv_mutex_unlock(&theclass->mutex_writereq_);
         req = (uv_write_t*)malloc(sizeof(*req));
         req->data = theclass;
     } else {
         req = theclass->writereq_list_.front();
         theclass->writereq_list_.pop_front();
-        uv_mutex_unlock(&theclass->mutex_writereq_);
+        //uv_mutex_unlock(&theclass->mutex_writereq_);
     }
     int iret = uv_write((uv_write_t*)req, (uv_stream_t*)&theclass->client_handle_, &theclass->writebuffer_, 1, AfterSend);//发送
     if (iret) {

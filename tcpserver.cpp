@@ -16,12 +16,20 @@ TCPServer::TCPServer(char packhead, char packtail)
         LOGE(errmsg_);
         fprintf(stdout,"init loop error: %s\n",errmsg_.c_str());
     }
+    iret = uv_mutex_init(&mutex_clients_);
+    if (iret) {
+        errmsg_ = GetUVError(iret);
+        LOGE(errmsg_);
+        fprintf(stdout,"uv_mutex_init error: %s\n",errmsg_.c_str());
+    }
 }
 
 
 TCPServer::~TCPServer()
 {
-    closeinl();
+    Close();
+    uv_thread_join(&start_threadhandle_);//事件循环退出表明真正结束
+    uv_mutex_destroy(&mutex_clients_);
     uv_loop_close(&loop_);
     LOGI("tcp server exit.");
 }
@@ -74,13 +82,6 @@ bool TCPServer::init()
     }
     idle_handle_.data = this;
 
-    iret = uv_mutex_init(&mutex_clients_);
-    if (iret) {
-        errmsg_ = GetUVError(iret);
-        LOGE(errmsg_);
-        return false;
-    }
-
     iret = uv_tcp_init(&loop_,&server_handle_);
     if (iret) {
         errmsg_ = GetUVError(iret);
@@ -117,12 +118,22 @@ void TCPServer::closeinl()
     }
     //clients_list_.clear();
     uv_mutex_unlock(&mutex_clients_);
+    if (!uv_is_closing((uv_handle_t*) &server_handle_)) {
+        uv_close((uv_handle_t*) &server_handle_, AfterServerClose);
+    }
+    if (!uv_is_closing((uv_handle_t*) &prepare_handle_)) {
+        uv_close((uv_handle_t*) &prepare_handle_, AfterServerClose);
+    }
+    if (!uv_is_closing((uv_handle_t*) &idle_handle_)) {
+        uv_close((uv_handle_t*) &idle_handle_, AfterServerClose);
+    }
+    if (!uv_is_closing((uv_handle_t*) &check_handle_)) {
+        uv_close((uv_handle_t*) &check_handle_, AfterServerClose);
+    }
 
-    uv_close((uv_handle_t*) &server_handle_, AfterServerClose);
-    uv_close((uv_handle_t*)&check_handle_,AfterServerClose);//发过close命令，AfterClientClose触发才真正close,可通过IsClosed判断是否关闭
-    uv_close((uv_handle_t*)&prepare_handle_,AfterServerClose);//发过close命令，AfterClientClose触发才真正close,可通过IsClosed判断是否关闭
-    uv_close((uv_handle_t*)&idle_handle_,AfterServerClose);//发过close命令，AfterClientClose触发才真正close,可通过IsClosed判断是否关闭
-    uv_mutex_destroy(&mutex_clients_);
+    //uv_close((uv_handle_t*)&check_handle_,AfterServerClose);//发过close命令，AfterClientClose触发才真正close,可通过IsClosed判断是否关闭
+    //uv_close((uv_handle_t*)&prepare_handle_,AfterServerClose);//发过close命令，AfterClientClose触发才真正close,可通过IsClosed判断是否关闭
+    //uv_close((uv_handle_t*)&idle_handle_,AfterServerClose);//发过close命令，AfterClientClose触发才真正close,可通过IsClosed判断是否关闭
     LOGI("close server");
 }
 
@@ -221,16 +232,16 @@ bool TCPServer::Start( const char *ip, int port )
 {
     serverip_ = ip;
     serverport_ = port;
-	closeinl();
-	if (!init()) {
-		return false;
-	}
-	if (!bind(serverip_.c_str(),serverport_)) {
-		return false;
-	}
-	if (!listen(SOMAXCONN)) {
-		return false;
-	}
+    closeinl();
+    if (!init()) {
+        return false;
+    }
+    if (!bind(serverip_.c_str(),serverport_)) {
+        return false;
+    }
+    if (!listen(SOMAXCONN)) {
+        return false;
+    }
     int iret = uv_thread_create(&start_threadhandle_, StartThread, this);//触发AfterConnect才算真正连接成功，所以用线程
     if (iret) {
         errmsg_ = GetUVError(iret);
@@ -256,17 +267,17 @@ bool TCPServer::Start6( const char *ip, int port )
 {
     serverip_ = ip;
     serverport_ = port;
-	closeinl();
-	if (!init()) {
-		return false;
-	}
-	if (!bind6(serverip_.c_str(),serverport_)) {
-		return false;
-	}
-	if (!listen(SOMAXCONN)) {
-		return false;
-	}
-   int iret = uv_thread_create(&start_threadhandle_, StartThread, this);//触发AfterConnect才算真正连接成功，所以用线程
+    closeinl();
+    if (!init()) {
+        return false;
+    }
+    if (!bind6(serverip_.c_str(),serverport_)) {
+        return false;
+    }
+    if (!listen(SOMAXCONN)) {
+        return false;
+    }
+    int iret = uv_thread_create(&start_threadhandle_, StartThread, this);//触发AfterConnect才算真正连接成功，所以用线程
     if (iret) {
         errmsg_ = GetUVError(iret);
         LOGE(errmsg_);
@@ -390,6 +401,7 @@ void TCPServer::AfterServerClose(uv_handle_t *handle)
         && theclass->check_handle_.data == 0
         && theclass->idle_handle_.data == 0) {
         theclass->isclosed_ = true;
+        theclass->isuseraskforclosed_ = false;
         LOGI("client  had closed.");
         if (theclass->closedcb_) {//通知TCPServer此客户端已经关闭
             theclass->closedcb_(-1,theclass->closedcb_userdata_);
@@ -419,16 +431,19 @@ void TCPServer::StartLog( const char* logpath /*= nullptr*/ )
 
 void TCPServer::SubClientClosed( int clientid, void* userdata )
 {
-    TCPServer *server = (TCPServer*)userdata;
-    uv_mutex_lock(&server->mutex_clients_);
-    auto itfind = server->clients_list_.find(clientid);
-    if (itfind != server->clients_list_.end()) {
+    TCPServer *theclass = (TCPServer*)userdata;
+    uv_mutex_lock(&theclass->mutex_clients_);
+    auto itfind = theclass->clients_list_.find(clientid);
+    if (itfind != theclass->clients_list_.end()) {
+        if (theclass->closedcb_) {
+            theclass->closedcb_(clientid,theclass->closedcb_userdata_);
+        }
         delete itfind->second;
         LOGI("删除客户端:"<<itfind->first);
         fprintf(stdout,"删除客户端：%d\n",itfind->first);
-        server->clients_list_.erase(itfind);
+        theclass->clients_list_.erase(itfind);
     }
-    uv_mutex_unlock(&server->mutex_clients_);
+    uv_mutex_unlock(&theclass->mutex_clients_);
 }
 
 
@@ -439,7 +454,6 @@ void TCPServer::PrepareCB( uv_prepare_t* handle )
     //检测是否关闭
     if (theclass->isuseraskforclosed_) {
         theclass->closeinl();
-        theclass->isuseraskforclosed_ = false;
         return;
     }
 }
@@ -456,20 +470,58 @@ void TCPServer::IdleCB( uv_idle_t* handle )
     //check阶段暂时不处理任何事情
 }
 
+void TCPServer::SetProtocol( int clientid, TCPServerProtocolProcess* protocol)
+{
+    uv_mutex_lock(&mutex_clients_);
+    auto itfind = clients_list_.find(clientid);
+    if (itfind != clients_list_.end()) {
+        itfind->second->SetProtocolProcess(protocol);
+    }
+    uv_mutex_unlock(&mutex_clients_);
+}
+
+TCPServerProtocolProcess* TCPServer::GetProtocolProcess( int clientid )
+{
+    uv_mutex_lock(&mutex_clients_);
+    auto itfind = clients_list_.find(clientid);
+    if (itfind != clients_list_.end()) {
+        return itfind->second->GetProtocolProcess();
+    }
+    uv_mutex_unlock(&mutex_clients_);
+    return NULL;
+}
+
+
+
 /*****************************************AcceptClient*************************************************************/
-AcceptClient::AcceptClient( int clientid, char packhead, char packtail, uv_loop_t* loop /*= uv_default_loop()*/ )
+AcceptClient::AcceptClient( int clientid, char packhead, char packtail, uv_loop_t* loop )
     :client_id_(clientid),loop_(loop)
     ,writebuf_list_(BUFFER_SIZE),isclosed_(true),isuseraskforclosed_(false)
     ,recvcb_(nullptr),recvcb_userdata_(nullptr),closedcb_(nullptr),closedcb_userdata_(nullptr)
+    ,protocolprocess_(NULL)
 {
     readbuffer_ = uv_buf_init((char*)malloc(BUFFER_SIZE), BUFFER_SIZE);
     writebuffer_ = uv_buf_init((char*) malloc(BUFFER_SIZE), BUFFER_SIZE);
+    //初始化write线程参数
+    int iret = uv_mutex_init(&mutex_writereq_);
+    if (iret) {
+        errmsg_ = GetUVError(iret);
+        LOGE(errmsg_);
+    }
+    iret = uv_mutex_init(&mutex_writebuf_);
+    if (iret) {
+        errmsg_ = GetUVError(iret);
+        LOGE(errmsg_);
+    }
     init(packhead,packtail);
 }
 
 AcceptClient::~AcceptClient()
 {
     closeinl();
+    while(!isclosed_){
+		ThreadSleep(10);
+	}
     if (readbuffer_.base) {
         free(readbuffer_.base);
         readbuffer_.base = NULL;
@@ -480,6 +532,8 @@ AcceptClient::~AcceptClient()
         writebuffer_.base = NULL;
         writebuffer_.len = 0;
     }
+    uv_mutex_destroy(&mutex_writebuf_);
+    uv_mutex_destroy(&mutex_writereq_);
 }
 
 bool AcceptClient::init( char packhead, char packtail )
@@ -509,21 +563,6 @@ bool AcceptClient::init( char packhead, char packtail )
     }
     client_handle_.data = this;
 
-
-    //初始化write线程参数
-    iret = uv_mutex_init(&mutex_writereq_);
-    if (iret) {
-        errmsg_ = GetUVError(iret);
-        LOGE(errmsg_);
-        return false;
-    }
-    iret = uv_mutex_init(&mutex_writebuf_);
-    if (iret) {
-        errmsg_ = GetUVError(iret);
-        LOGE(errmsg_);
-        return false;
-    }
-
     //启动read封装类
     readpacket_.SetPacketCB(GetPacket,this);
     readpacket_.Start(packhead,packtail);
@@ -539,7 +578,6 @@ void AcceptClient::closeinl()
     }
     //停止read封装类
     readpacket_.Stop();
-    uv_mutex_destroy(&mutex_writebuf_);
 
     uv_mutex_lock(&mutex_writereq_);
     for (auto it= writereq_list_.begin(); it!=writereq_list_.end(); ++it) {
@@ -547,7 +585,6 @@ void AcceptClient::closeinl()
     }
     writereq_list_.clear();
     uv_mutex_unlock(&mutex_writereq_);
-    uv_mutex_destroy(&mutex_writereq_);
 
     uv_close((uv_handle_t*)&client_handle_,AfterClientClose);
     uv_close((uv_handle_t*)&prepare_handle_,AfterClientClose);//发过close命令，AfterClientClose触发才真正close,可通过IsClosed判断是否关闭
@@ -561,12 +598,16 @@ void AcceptClient::GetPacket( const NetPacket& packethead, const unsigned char* 
         return;
     }
     AcceptClient *theclass = (AcceptClient*)userdata;
+    if (theclass->protocolprocess_) {//协议处理
+        const std::string& senddata = theclass->protocolprocess_->ParsePacket(packethead,packetdata);
+        theclass->Send(senddata.c_str(),senddata.length());
+    }
     if (theclass->recvcb_) {//把得到的数据回调给用户
-        theclass->recvcb_(theclass->client_id_,packethead,packetdata,userdata);
+        theclass->recvcb_(theclass->client_id_,packethead,packetdata,theclass->recvcb_userdata_);
     }
 }
 
-//发送数据：把数据压入队列，由WriteThread线程负责发送，所以无返回值
+//发送数据：把数据压入队列，由WriteThread线程负责发送
 int AcceptClient::Send( const char* data, std::size_t len )
 {
     if (!data || len <= 0) {
@@ -575,7 +616,7 @@ int AcceptClient::Send( const char* data, std::size_t len )
         return 0;
     }
     size_t iret = 0;
-    while(1) {
+    while(!isuseraskforclosed_) {
         uv_mutex_lock(&mutex_writebuf_);
         iret +=writebuf_list_.write(data+iret,len-iret);
         uv_mutex_unlock(&mutex_writebuf_);
@@ -622,19 +663,15 @@ bool AcceptClient::AcceptByServer( uv_tcp_t* server )
 //分配空间接收数据
 void AcceptClient::AllocBufferForRecv(uv_handle_t *handle, size_t suggested_size, uv_buf_t *buf)
 {
-    if (!handle->data) {
-        return;
-    }
     AcceptClient *client = (AcceptClient*)handle->data;
+    assert(client);
     *buf = client->readbuffer_;
 }
 //接收数据回调
 void AcceptClient::AfterRecv(uv_stream_t *handle, ssize_t nread, const uv_buf_t* buf)
 {
-    if (!handle->data) {
-        return;
-    }
     AcceptClient *theclass = (AcceptClient*)handle->data;//服务器的recv带的是clientdata
+    assert(theclass);
     if (nread < 0) {/* Error or EOF */
         if (nread == UV_EOF) {
             fprintf(stdout,"客户端(%d)主动断开\n",theclass->client_id_);
@@ -646,7 +683,7 @@ void AcceptClient::AfterRecv(uv_stream_t *handle, ssize_t nread, const uv_buf_t*
             fprintf(stdout,"%s\n",GetUVError(nread));
             LOGW("客户端("<<theclass->client_id_<<")异常断开："<<GetUVError(nread));
         }
-        theclass->closeinl();
+        theclass->Close();
         return;
     } else if (0 == nread)  {/* Everything OK, but nothing read. */
 
@@ -658,6 +695,7 @@ void AcceptClient::AfterRecv(uv_stream_t *handle, ssize_t nread, const uv_buf_t*
 void AcceptClient::AfterClientClose( uv_handle_t *handle )
 {
     AcceptClient *theclass = (AcceptClient*)handle->data;
+    assert(theclass);
     if (handle == (uv_handle_t *)&theclass->prepare_handle_) {
         handle->data = 0;//赋值0，用于判断是否调用过
     }
@@ -667,9 +705,10 @@ void AcceptClient::AfterClientClose( uv_handle_t *handle )
     if (theclass->prepare_handle_.data == 0
         && theclass->client_handle_.data == 0) {
         theclass->isclosed_ = true;
+        theclass->isuseraskforclosed_ = false;
         LOGI("client  had closed.");
         if (theclass->closedcb_) {//通知TCPServer此客户端已经关闭
-            theclass->closedcb_(-1,theclass->closedcb_userdata_);
+            theclass->closedcb_(theclass->client_id_,theclass->closedcb_userdata_);
         }
     }
 }
@@ -693,10 +732,10 @@ void AcceptClient::PrepareCB( uv_prepare_t* handle )
 {
     /////////////////////////prepare阶段检测用户是否发送关闭命令，是否有数据要发送
     AcceptClient *theclass = (AcceptClient*)handle->data;
+    assert(theclass);
     //检测是否关闭
     if (theclass->isuseraskforclosed_) {
         theclass->closeinl();
-        theclass->isuseraskforclosed_ = false;
         return;
     }
     //检测是否有数据要发送
@@ -728,4 +767,8 @@ void AcceptClient::PrepareCB( uv_prepare_t* handle )
     }
 }
 
+TCPServerProtocolProcess* AcceptClient::GetProtocolProcess( void ) const
+{
+    return protocolprocess_;
+}
 }

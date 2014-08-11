@@ -25,6 +25,7 @@
 #include <map>
 #include "uv.h"
 #include "net/packet.h"
+#include "tcpserverprotocolprocess.h"
 #ifndef BUFFER_SIZE
 #define BUFFER_SIZE (1024*10)
 #endif
@@ -54,6 +55,9 @@ public:
 
     void SetRecvCB(ServerRecvCB pfun, void* userdata);//设置接收数据回调函数
     void SetClosedCB(TcpCloseCB pfun, void* userdata);//设置接收关闭事件的回调函数
+	void SetProtocolProcess(TCPServerProtocolProcess *protocol){protocolprocess_ = protocol;}
+	TCPServerProtocolProcess* GetProtocolProcess(void)const;
+
 	int Send(const char* data, std::size_t len);
 	void Close(){ isuseraskforclosed_ = true;}//用户关闭客户端，IsClosed返回true才是真正关闭了
 	bool IsClosed(){return isclosed_;};//判断客户端是否已关闭
@@ -84,6 +88,8 @@ private:
 	uv_mutex_t mutex_writereq_;//控制writereq_list_
 	PodCircularBuffer<char> writebuf_list_;//发送数据队列
 
+	TCPServerProtocolProcess *protocolprocess_;//类型处理类
+
     std::string errmsg_;//保存错误信息
 
     ServerRecvCB recvcb_;//接收数据回调给用户的函数
@@ -106,7 +112,7 @@ private:
 /*************************************************
 功能：TCP Server
 调用方法：
-设置回调函数SetNewConnectCB/SetRecvCB
+设置回调函数SetNewConnectCB/SetRecvCB/SetClosedCB
 调用StartLog启用日志功能(可选)
 调用Start/Start6启动服务器
 调用Send发送数据(可选)
@@ -124,6 +130,9 @@ public:
     void SetNewConnectCB(NewConnectCB cb, void *userdata);
     void SetRecvCB(int clientid,ServerRecvCB cb, void *userdata);//设置接收回调函数，每个客户端各有一个
 	void SetClosedCB(TcpCloseCB pfun, void* userdata);//设置接收关闭事件的回调函数
+	void SetProtocol(int clientid, TCPServerProtocolProcess* protocol);
+	TCPServerProtocolProcess* GetProtocolProcess(int clientid);
+
     bool Start(const char *ip, int port);//启动服务器,地址为IP4
     bool Start6(const char *ip, int port);//启动服务器，地址为IP6
 	int  Send(int clientid, const char* data, std::size_t len);

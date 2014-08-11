@@ -100,7 +100,7 @@ inline bool Int32ToChar(const uint32_t intnum,unsigned char* charnum)
 inline bool CharToInt32(const unsigned char* charnum, uint32_t& intnum)
 {
     intnum =  (charnum[0] << 24) + (charnum[1] << 16) + (charnum[2] << 8) + charnum[3];
-    intnum=ntohl(intnum);//转换为网络字节序
+    intnum = ntohl(intnum);//转换为网络字节序
     return true;
 }
 

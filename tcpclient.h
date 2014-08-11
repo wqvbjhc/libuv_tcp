@@ -111,7 +111,7 @@ private:
 	uv_buf_t writebuffer_;//发送数据的buf
     uv_mutex_t mutex_writebuf_;//控制writebuf_list_
     std::list<uv_write_t*> writereq_list_;//可用的uv_write_t
-    uv_mutex_t mutex_writereq_;//控制writereq_list_
+    //uv_mutex_t mutex_writereq_;//控制writereq_list_
     PodCircularBuffer<char> writebuf_list_;//发送数据队列
 
     ClientRecvCB recvcb_;//回调函数

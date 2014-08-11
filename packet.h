@@ -11,10 +11,13 @@ pac.SetPacketCB(GetPacket,&serpac);
 packet.Start(0x01,0x02);
 //socket有数据到达时，调用packet.recvdata((const unsigned char*)buf,bufsize); 只要足够一帧它会触发GetPacket
 
+空串（长度为0）的md5值为：d41d8cd98f00b204e9800998ecf8427e
 * @author   陈吉宏, wqvbjhc@gmail.com
 * @date     2014-05-21
 * @mod      2014-07-24 phata 添加GetUVError，PacketData两个公共函数. TCP Server Client会调用到
                              添加TCP编程使用到的回调函数定义
+			2014-07-28 phata 长度为0的md5为：d41d8cd98f00b204e9800998ecf8427e，改为全0. 编解码时修改。
+			2014-08-04 phata 修复解析一帧数据有误的bug
 ****************************************/
 #ifndef PACKET_H
 #define PACKET_H
@@ -118,32 +121,19 @@ protected:
         char *headpt = NULL;//找到头位置
         const unsigned char HEAD = theclass->HEAD;//包头
         const unsigned char TAIL = theclass->TAIL;//包尾
-        NetPacket thread_netpacket;
+        NetPacket theNexPacket;
 
         unsigned char md5str[MD5_DIGEST_LENGTH];
 
         while(!theclass->is_uvthread_stop_) {
             uv_mutex_lock(&theclass->uvmutex_cirbuf_);
-            if (theclass->circulebuffer_.empty() && truepacketlen < NET_PACKAGE_HEADLEN+3) {
+            if (theclass->circulebuffer_.empty() && truepacketlen < NET_PACKAGE_HEADLEN+2) {
                 uv_mutex_unlock(&theclass->uvmutex_cirbuf_);
                 ThreadSleep(100);
                 continue;
             }
             truepacketlen += theclass->circulebuffer_.read((unsigned char*)thread_readdata.base+truepacketlen,thread_readdata.len-truepacketlen);
             uv_mutex_unlock(&theclass->uvmutex_cirbuf_);
-            //fprintf(stdout,"接收到的数据为:\n");;
-            //for (int i=0; i<truepacketlen; ++i) {
-            //    if (thread_readdata.base[i] == HEAD) {
-            //        fprintf(stdout," %02X ",(unsigned char)thread_readdata.base[i]);
-            //    } else {
-            //        fprintf(stdout,"%02X",(unsigned char)thread_readdata.base[i]);
-            //    }
-            //}
-            //fprintf(stdout,"\n");;
-            //if (truepacketlen < NET_PACKAGE_HEADLEN + 1) {//数据不够解析帧头，先缓存
-            //    //fprintf(stdout,"读取%d数据，数据不够解析帧头，先缓存\n",truepacketlen);
-            //    continue;
-            //}
             //在接收到的数据查找包头
             //1.找不到，丢弃所有数据。(说明非法客户端在攻击)
             //2.在中间找到，丢弃前面的。
@@ -161,9 +151,11 @@ protected:
             }
             headpos = headpt - thread_readdata.base;
             if (truepacketlen - headpos - 1< NET_PACKAGE_HEADLEN) {//2.2
-                //fprintf(stdout,"读取%d数据，找到包头,位于%d,数据不够解析帧头，先缓存\n",truepacketlen,headpos);
-                memmove(thread_readdata.base,thread_readdata.base+headpos+1,truepacketlen - headpos - 1);
-                truepacketlen -= headpos - 1;
+                if (headpos != 0) {
+                    fprintf(stdout,"读取%d数据，找到包头,位于%d,数据不够解析帧头，先缓存\n",truepacketlen,headpos);
+                    memmove(thread_readdata.base,thread_readdata.base+headpos,truepacketlen - headpos);
+                    truepacketlen -= headpos;
+                }
                 continue;
             }
             //得帧头
@@ -172,35 +164,33 @@ protected:
             //for (int i=0; i<NET_PACKAGE_HEADLEN; ++i) {
             //    fprintf(stdout,"%02X",(unsigned char)(headpt)[i]);
             //}
-            //fprintf(stdout,"\n");;
-            CharToNetPacket((const unsigned char*)(headpt),thread_netpacket);
-            if (thread_netpacket.header != HEAD || thread_netpacket.tail != TAIL || thread_netpacket.datalen <= 0) {//帧头数据不合法
-                fprintf(stdout,"读取%d数据,包头位于%d. 帧数据不合法(head:%x,tail:%x,datalen:%d)\n",truepacketlen,headpos,thread_netpacket.header,
-                        thread_netpacket.tail,thread_netpacket.datalen);
+            //fprintf(stdout,"\n");
+            CharToNetPacket((const unsigned char*)(headpt),theNexPacket);
+            if (theNexPacket.header != HEAD || theNexPacket.tail != TAIL || theNexPacket.datalen < 0) {//帧头数据不合法(帧长允许为0)
+                fprintf(stdout,"读取%d数据,包头位于%d. 帧数据不合法(head:%02x,tail:%02x,datalen:%d)\n",
+                        truepacketlen,headpos,theNexPacket.header,theNexPacket.tail,theNexPacket.datalen);
                 memmove(thread_readdata.base,thread_readdata.base+headpos+1,truepacketlen - headpos-1);//2.4
-                truepacketlen -= headpos-1;
+                truepacketlen -= headpos + 1;
                 continue;
             }
             //得帧数据
-            if (thread_packetdata.len < (size_t)thread_netpacket.datalen+1) {//包含最后的tail
-                thread_packetdata.base = (char*)realloc(thread_packetdata.base,thread_netpacket.datalen+1);
-                thread_packetdata.len = thread_netpacket.datalen+1;
+            if (thread_packetdata.len < (size_t)theNexPacket.datalen+1) {//包含最后的tail
+                thread_packetdata.base = (char*)realloc(thread_packetdata.base,theNexPacket.datalen+1);
+                thread_packetdata.len = theNexPacket.datalen+1;
             }
-            int getdatalen = (std::min)((int)(truepacketlen - headpos - 1- NET_PACKAGE_HEADLEN),(int)(thread_netpacket.datalen+1));
+            int getdatalen = (std::min)((int)(truepacketlen - headpos - 1- NET_PACKAGE_HEADLEN),(int)(theNexPacket.datalen+1));
             //先从thread_readdata中取
             if (getdatalen > 0) {
-                //fprintf(stdout,"Get %d data from thread_readdata\n",getdatalen);
                 memcpy(thread_packetdata.base,thread_readdata.base+headpos+1+NET_PACKAGE_HEADLEN,getdatalen);
             }
-            //不够再从theclass->circulebuffer_中取
-            while(getdatalen < thread_netpacket.datalen+1 && !theclass->is_uvthread_stop_) {
-                //fprintf(stdout,"Get data from while. %d total %d\n",getdatalen,thread_netpacket.datalen+1);
-                ThreadSleep(100);
-                fprintf(stdout,"get packet data %d-%d\n",getdatalen,thread_netpacket.datalen+1);
+            while(getdatalen < theNexPacket.datalen+1 && !theclass->is_uvthread_stop_) {
+                ThreadSleep(10);
                 uv_mutex_lock(&theclass->uvmutex_cirbuf_);
-                getdatalen += theclass->circulebuffer_.read((unsigned char*)thread_packetdata.base+getdatalen,thread_netpacket.datalen+1-getdatalen);
+                getdatalen += theclass->circulebuffer_.read((unsigned char*)thread_packetdata.base+getdatalen,
+                              theNexPacket.datalen+1-getdatalen);
                 uv_mutex_unlock(&theclass->uvmutex_cirbuf_);
             }
+
             //fprintf(stdout,"包数据和尾部为:\n");;
             //for (int i=0; i<thread_netpacket.datalen+1; ++i) {
             //    fprintf(stdout,"%02X",(unsigned char)thread_packetdata.base[i]);
@@ -208,53 +198,69 @@ protected:
             //fprintf(stdout,"\n");;
 
             //检测校验码与最后一位
-            if (thread_packetdata.base[thread_netpacket.datalen] != TAIL) {
-                fprintf(stdout,"读取%d数据,包头位于%d. 包尾数据不合法(tail:%02x)\n",truepacketlen,headpos,thread_packetdata.base[thread_netpacket.datalen]);
-                if (thread_readdata.len < 2 + NET_PACKAGE_HEADLEN + thread_netpacket.datalen ) {//包含最后的tail
-                    thread_readdata.base = (char*)realloc(thread_readdata.base,thread_netpacket.datalen+2+NET_PACKAGE_HEADLEN);
-                    thread_readdata.len = thread_netpacket.datalen+2+NET_PACKAGE_HEADLEN;
+            if (thread_packetdata.base[theNexPacket.datalen] != TAIL) {
+                fprintf(stdout,"包数据长%d, 包尾数据不合法(tail:%02x)\n",theNexPacket.datalen,
+                        (unsigned char)(thread_packetdata.base[theNexPacket.datalen]));
+                if (truepacketlen - headpos - 1 - NET_PACKAGE_HEADLEN >= theNexPacket.datalen + 1) {//thread_readdata数据足够
+                    memmove(thread_readdata.base,thread_readdata.base+headpos+1,truepacketlen - headpos-1);//2.4
+                    truepacketlen -= headpos + 1;
+                } else {//thread_readdata数据不足
+                    if (thread_readdata.len < NET_PACKAGE_HEADLEN + theNexPacket.datalen + 1) {//包含最后的tail
+                        thread_readdata.base = (char*)realloc(thread_readdata.base,NET_PACKAGE_HEADLEN + theNexPacket.datalen + 1);
+                        thread_readdata.len = NET_PACKAGE_HEADLEN + theNexPacket.datalen + 1;
+                    }
+                    memmove(thread_readdata.base,thread_readdata.base+headpos+1,NET_PACKAGE_HEADLEN);//2.4
+                    truepacketlen = NET_PACKAGE_HEADLEN;
+                    memcpy(thread_readdata.base+truepacketlen,thread_packetdata.base,theNexPacket.datalen+1);
+                    truepacketlen +=theNexPacket.datalen+1;
                 }
-                memmove(thread_readdata.base,thread_readdata.base+headpos+1,1 + NET_PACKAGE_HEADLEN);//2.4
-                truepacketlen = 1 + NET_PACKAGE_HEADLEN;
-                memcpy(thread_readdata.base+truepacketlen,thread_packetdata.base,thread_netpacket.datalen+1);
-                truepacketlen +=thread_netpacket.datalen+1;
                 continue;
             }
-            MD5_CTX md5;
-            MD5_Init(&md5);
-            MD5_Update(&md5,thread_packetdata.base,thread_netpacket.datalen);//包数据的校验值
-            MD5_Final(md5str,&md5);
-            if (memcmp(thread_netpacket.check,md5str,MD5_DIGEST_LENGTH) != 0) {
+            if (0 == theNexPacket.datalen ) {//长度为0的md5为：d41d8cd98f00b204e9800998ecf8427e，改为全0
+                memset(md5str,0,sizeof(md5str));
+            } else {
+                MD5_CTX md5;
+                MD5_Init(&md5);
+                MD5_Update(&md5,thread_packetdata.base,theNexPacket.datalen);//包数据的校验值
+                MD5_Final(md5str,&md5);
+            }
+            if (memcmp(theNexPacket.check,md5str,MD5_DIGEST_LENGTH) != 0) {
                 //{
-                fprintf(stdout,"读取%d数据,包头位于%d. 校验码不合法\n",truepacketlen,headpos,thread_packetdata.base[thread_netpacket.datalen]);
-                //    fprintf(stdout,"recvmd5:");
-                //    for (int i=0; i< MD5_DIGEST_LENGTH; ++i) {
-                //        fprintf(stdout,"%02x",thread_netpacket.check[i]);
-                //    }
-                //    fprintf(stdout,"\ncal md5:");
-                //    for (int i=0; i< MD5_DIGEST_LENGTH; ++i) {
-                //        fprintf(stdout,"%02x",md5str[i]);
-                //    }
-                //    fprintf(stdout,"\n");;
+                fprintf(stdout,"读取%d数据, 校验码不合法\n",NET_PACKAGE_HEADLEN + theNexPacket.datalen + 2);
+                //fprintf(stdout,"recvmd5:");
+                //for (int i=0; i< MD5_DIGEST_LENGTH; ++i) {
+                //    fprintf(stdout,"%02x",theNexPacket.check[i]);
                 //}
-                if (thread_readdata.len < 2 + NET_PACKAGE_HEADLEN + thread_netpacket.datalen ) {//包含最后的tail
-                    thread_readdata.base = (char*)realloc(thread_readdata.base,thread_netpacket.datalen+2+NET_PACKAGE_HEADLEN);
-                    thread_readdata.len = thread_netpacket.datalen+2+NET_PACKAGE_HEADLEN;
+                //fprintf(stdout,"\ncal md5:");
+                //for (int i=0; i< MD5_DIGEST_LENGTH; ++i) {
+                //    fprintf(stdout,"%02x",md5str[i]);
+                //}
+                //fprintf(stdout,"\n");
+                if (truepacketlen - headpos - 1 - NET_PACKAGE_HEADLEN >= theNexPacket.datalen + 1) {//thread_readdata数据足够
+                    memmove(thread_readdata.base,thread_readdata.base+headpos+1,truepacketlen - headpos-1);//2.4
+                    truepacketlen -= headpos + 1;
+                } else {//thread_readdata数据不足
+                    if (thread_readdata.len < NET_PACKAGE_HEADLEN + theNexPacket.datalen + 1) {//包含最后的tail
+                        thread_readdata.base = (char*)realloc(thread_readdata.base,NET_PACKAGE_HEADLEN + theNexPacket.datalen + 1);
+                        thread_readdata.len = NET_PACKAGE_HEADLEN + theNexPacket.datalen + 1;
+                    }
+                    memmove(thread_readdata.base,thread_readdata.base+headpos+1,NET_PACKAGE_HEADLEN);//2.4
+                    truepacketlen = NET_PACKAGE_HEADLEN;
+                    memcpy(thread_readdata.base+truepacketlen,thread_packetdata.base,theNexPacket.datalen+1);
+                    truepacketlen +=theNexPacket.datalen+1;
                 }
-                memmove(thread_readdata.base,thread_readdata.base+headpos+1,1 + NET_PACKAGE_HEADLEN);//2.4
-                truepacketlen = 1 + NET_PACKAGE_HEADLEN;
-                memcpy(thread_readdata.base+truepacketlen,thread_packetdata.base,thread_netpacket.datalen+1);
-                truepacketlen +=thread_netpacket.datalen+1;
                 continue;
             }
-            truepacketlen = 0;//从新开始读取数据
-            //{
-            //    thread_packetdata.base[thread_netpacket.datalen] = '\0';
-            //    fprintf(stdout,"获取一帧数据成功,datalen:%d, data:\n%s\n",thread_netpacket.datalen,thread_packetdata.base);
-            //}
+            if (truepacketlen - headpos - 1 - NET_PACKAGE_HEADLEN >= theNexPacket.datalen + 1) {//thread_readdata数据足够
+				memmove(thread_readdata.base,thread_readdata.base+headpos + NET_PACKAGE_HEADLEN + theNexPacket.datalen + 2,
+					truepacketlen - (headpos + NET_PACKAGE_HEADLEN + theNexPacket.datalen + 2) );//2.4
+                truepacketlen -= headpos + NET_PACKAGE_HEADLEN + theNexPacket.datalen + 2;
+            } else {
+                truepacketlen = 0;//从新开始读取数据
+            }
             //回调帧数据给用户
             if (theclass->packet_cb_) {
-                theclass->packet_cb_(thread_netpacket,(const unsigned char*)thread_packetdata.base,theclass->packetcb_userdata_);
+                theclass->packet_cb_(theNexPacket,(const unsigned char*)thread_packetdata.base,theclass->packetcb_userdata_);
             }
         }
     }
@@ -284,13 +290,14 @@ private:// no copy
 ******************************/
 inline std::string PacketData(NetPacket& packet, const unsigned char* data)
 {
-    unsigned char md5str[MD5_DIGEST_LENGTH];
-    MD5_CTX md5;
-    MD5_Init(&md5);
-    MD5_Update(&md5,data,packet.datalen);
-    MD5_Final(md5str,&md5);
-    memcpy(packet.check,md5str,MD5_DIGEST_LENGTH);
-
+    if (packet.datalen == 0 || data == NULL) {//长度为0的md5为：d41d8cd98f00b204e9800998ecf8427e，改为全0
+        memset(packet.check,0,sizeof(packet.check));
+    } else {
+        MD5_CTX md5;
+        MD5_Init(&md5);
+        MD5_Update(&md5,data,packet.datalen);
+        MD5_Final(packet.check,&md5);
+    }
     unsigned char packchar[NET_PACKAGE_HEADLEN];
     NetPacketToChar(packet,packchar);
 
