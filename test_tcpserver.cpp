@@ -7,8 +7,6 @@ class TestTCPProtocol: public TCPServerProtocolProcess
 public:
 	TestTCPProtocol(){}
 	virtual ~TestTCPProtocol(){}
-	//解析用户的包并生成回应包
-	//应该返回const引用避免内存拷贝，所以得定义一个成员变量std::string用于返回
 	virtual const std::string& ParsePacket(const NetPacket& packet, const unsigned char* buf){
 		static char senddata[256];
 		sprintf(senddata,"****recv datalen %d",packet.datalen);
@@ -53,6 +51,7 @@ int main(int argc, char** argv)
     if(!server.Start("0.0.0.0",12345)) {
         fprintf(stdout,"Start Server error:%s\n",server.GetLastErrMsg());
     }
+	server.SetKeepAlive(1,60);//enable Keepalive, 60s
     fprintf(stdout,"server return on main.\n");
     while(!is_eist) {
         Sleep(10);

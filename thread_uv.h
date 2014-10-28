@@ -2,12 +2,12 @@
 * @file     thread_uv.h
 * @brief    对libuv下的线程与锁进行封装
 * @details
-* @author   phata,wqvbjhc@gmail.com
+* @author   陈吉宏,wqvbjhc@gmail.com
 * @date     2014-10-27
-* @mod
+* @mod      2015-03-24  phata  uv_err_name,uv_strerror返回NULL时直接转string会崩溃，先判断
 ******************************************/
-#ifndef COMMON_THREAD_H
-#define COMMON_THREAD_H
+#ifndef COMMON_THREAD_UV_H
+#define COMMON_THREAD_UV_H
 #include <string>
 #include "uv.h"
 
@@ -41,18 +41,27 @@
 
 /*****************************
 * @brief   获取libuv错误码对应的错误信息
-* @param   retcode --libuv函数错误码(不等于0的返回值)
+* @param   errcode     --libuv函数错误码(不等于0的返回值)
 * @return  std::string --返回的详细错误说明
 ******************************/
-inline std::string GetUVError(int retcode)
+inline std::string GetUVError(int errcode)
 {
-    if (0 == retcode) {
+    if (0 == errcode) {
         return "";
     }
     std::string err;
-    err = uv_err_name(retcode);
-    err += ":";
-    err += uv_strerror(retcode);
+    auto tmpChar = uv_err_name(errcode);
+    if (tmpChar) {
+        err = tmpChar;
+        err += ":";
+    }else{
+		err = "unknown system errcode "+std::to_string((long long)errcode);
+		err += ":";
+	}
+    tmpChar = uv_strerror(errcode);
+    if (tmpChar) {
+        err += tmpChar;
+    }
     return std::move(err);
 }
 
@@ -92,11 +101,11 @@ private://private中，禁止复制和赋值
 class CUVAutoLock
 {
 public:
-    explicit CUVAutoLock(uv_mutex_t *mut):mut_(mut)
+    explicit CUVAutoLock(uv_mutex_t* mut): mut_(mut)
     {
         uv_mutex_lock(mut_);
     }
-    explicit CUVAutoLock(CUVMutex *mut):mut_(&mut->mut_)
+    explicit CUVAutoLock(CUVMutex* mut): mut_(&mut->mut_)
     {
         uv_mutex_lock(mut_);
     }
@@ -131,21 +140,21 @@ public:
     {
         uv_cond_broadcast(&cond_);
     }
-    void Wait(CUVMutex *mutex)
+    void Wait(CUVMutex* mutex)
     {
-        uv_cond_wait(&cond_,&mutex->mut_);
+        uv_cond_wait(&cond_, &mutex->mut_);
     }
-    void Wait(uv_mutex_t *mutex)
+    void Wait(uv_mutex_t* mutex)
     {
-        uv_cond_wait(&cond_,mutex);
+        uv_cond_wait(&cond_, mutex);
     }
-    int Wait(CUVMutex *mutex, uint64_t timeout)
+    int Wait(CUVMutex* mutex, uint64_t timeout)
     {
-        return uv_cond_timedwait(&cond_,&mutex->mut_,timeout);
+        return uv_cond_timedwait(&cond_, &mutex->mut_, timeout);
     }
-    int Wait(uv_mutex_t *mutex, uint64_t timeout)
+    int Wait(uv_mutex_t* mutex, uint64_t timeout)
     {
-        return uv_cond_timedwait(&cond_,mutex,timeout);
+        return uv_cond_timedwait(&cond_, mutex, timeout);
     }
 private:
     uv_cond_t cond_;
@@ -160,7 +169,7 @@ class CUVSem
 public:
     explicit CUVSem(int initValue = 0)
     {
-        uv_sem_init(&sem_,initValue);
+        uv_sem_init(&sem_, initValue);
     }
     ~CUVSem(void)
     {
@@ -234,7 +243,7 @@ class CUVBarrier
 public:
     explicit CUVBarrier(int count)
     {
-        uv_barrier_init(&barrier_,count);
+        uv_barrier_init(&barrier_, count);
     }
     ~CUVBarrier(void)
     {
@@ -251,12 +260,12 @@ private://private中，禁止复制和赋值
     CUVBarrier& operator =(const CUVBarrier&);//不实现
 };
 
-typedef void (*entry)(void *arg);
+typedef void (*entry)(void* arg);
 class CUVThread
 {
 public:
     explicit CUVThread(entry fun, void* arg)
-        :fun_(fun),arg_(arg), isrunning_(false)
+        : fun_(fun), arg_(arg), isrunning_(false)
     {
 
     }
@@ -272,8 +281,8 @@ public:
         if (isrunning_) {
             return;
         }
-        uv_thread_create(&thread_,fun_,arg_);
-		isrunning_ = true;
+        uv_thread_create(&thread_, fun_, arg_);
+        isrunning_ = true;
     }
     void Stop()
     {
@@ -281,14 +290,14 @@ public:
             return;
         }
         uv_thread_join(&thread_);
-		isrunning_ = false;
+        isrunning_ = false;
     }
     void Sleep(int64_t millsec)
     {
         uv_thread_sleep(millsec);
     }
     int GetThreadID(void) const
-    { 
+    {
         return uv_thread_id();
     }
     bool IsRunning(void) const
@@ -301,4 +310,4 @@ private:
     void* arg_;
     bool isrunning_;
 };
-#endif //COMMON_THREAD_H
+#endif //COMMON_THREAD_UV_H

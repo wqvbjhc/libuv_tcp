@@ -2,7 +2,7 @@
 * @file     tcpclient.h
 * @brief    基于libuv封装的tcp服务器与客户端,使用log4z作日志工具
 * @details
-* @author   陈吉宏, wqvbjhc@gmail.com
+* @author   phata, wqvbjhc@gmail.com
 * @date     2014-05-13
 * @mod      2014-05-13  phata  修正服务器与客户端的错误.现服务器支持多客户端连接
                                修改客户端测试代码，支持并发多客户端测试
@@ -38,16 +38,7 @@
 
 namespace uv
 {
-/**********************************************客户端****************************************************/
-/*************************************************
-功能：TCP 客户端对象
-调用方法：
-设置回调函数SetRecvCB/SetClosedCB
-调用Connect/Connect6函数启动客户端
-调用Send发送数据(可选)
-调用Close停止客户端，真正停止时会触发在回调SetClosedCB中所设置的函数
-调用IsClosed判断客户端是否真正关闭了
-*************************************************/
+/**********************************************Client****************************************************/
 typedef struct _tcpclient_ctx {
     uv_tcp_t tcphandle;//store this on data
     uv_write_t write_req;//store this on data
@@ -59,7 +50,7 @@ typedef struct _tcpclient_ctx {
 TcpClientCtx* AllocTcpClientCtx(void* parentserver);
 void FreeTcpClientCtx(TcpClientCtx* ctx);
 
-typedef struct _write_param{//vu_write带的参数
+typedef struct _write_param{//param of uv_write
 	uv_write_t write_req_;//store TCPClient on data
 	uv_buf_t buf_;
 	int buf_truelen_;
@@ -67,47 +58,64 @@ typedef struct _write_param{//vu_write带的参数
 write_param * AllocWriteParam(void);
 void FreeWriteParam(write_param* param);
 
+/*************************************************
+Fun: TCP Client
+Usage：
+Start the log fun(optional): StartLog
+Set the call back fun      : SetRecvCB/SetClosedCB/SetReconnectCB
+Connect Server             : Connect/Connect6
+SetNoDelay(optional)       : SetNoDelay
+SetKeepAlive(optional)     : SetKeepAlive
+Send data                  : Send
+Close Server               : Close. this fun only set the close command, call IsClosed to verify real closed.
+                             or verify in the call back fun which SetRecvCB set.
+Stop the log fun(optional) : StopLog
+GetLastErrMsg(optional)    : when the above fun call failure, call this fun to get the error message.
+*************************************************/
 class TCPClient
 {
 public:
     TCPClient(char packhead, char packtail);
     virtual ~TCPClient();
-    static void StartLog(const char* logpath = nullptr);//启动日志，必须启动才会生成日志
+	//Start/Stop the log
+    static void StartLog(const char* logpath = nullptr);
 	static void StopLog();
 public:
-    //基本函数
-    void SetRecvCB(ClientRecvCB pfun, void* userdata);////设置接收回调函数，只有一个
-    void SetClosedCB(TcpCloseCB pfun, void* userdata);//设置接收关闭事件的回调函数
-	void SetReconnectCB(ReconnectCB pfun, void* userdata);//设置断重与重连通知函数
-    bool Connect(const char* ip, int port);//启动connect线程，循环等待直到connect完成
-    bool Connect6(const char* ip, int port);//启动connect线程，循环等待直到connect完成
-    int  Send(const char* data, std::size_t len);
-    void Close();
-    bool IsClosed() {
+    void SetRecvCB(ClientRecvCB pfun, void* userdata);//set recv cb
+    void SetClosedCB(TcpCloseCB pfun, void* userdata);//set close cb.
+	void SetReconnectCB(ReconnectCB pfun, void* userdata);//set reconnect cb
+    bool Connect(const char* ip, int port);//connect the server, ipv4
+    bool Connect6(const char* ip, int port);//connect the server, ipv6
+    int  Send(const char* data, std::size_t len);//send data to server
+    void Close();//send close command. verify IsClosed for real closed
+    bool IsClosed() {//verify if real closed
         return isclosed_;
-    };//判断客户端是否已关闭
-    //是否启用Nagle算法
-    bool setNoDelay(bool enable);
-    bool setKeepAlive(int enable, unsigned int delay);
+    };
+	//Enable or disable Nagle’s algorithm. must call after Server succeed start.
+    bool SetNoDelay(bool enable);
+
+	//Enable or disable KeepAlive. must call after Server succeed start.
+	//delay is the initial delay in seconds, ignored when enable is zero
+    bool SetKeepAlive(int enable, unsigned int delay);
 
     const char* GetLastErrMsg() const {
         return errmsg_.c_str();
     };
 protected:
-    bool init();//初始化参数
-    void closeinl();//内部真正的清理函数
-    bool run(int status = UV_RUN_DEFAULT);//启动事件循环
-	void send_inl(uv_write_t* req = NULL);//检测发送数据队列writecontrol_circularbuf_，有数据则发送
-    static void ConnectThread(void* arg);//真正的connect线程
+    bool init();
+    void closeinl();//real close fun
+    bool run(int status = UV_RUN_DEFAULT);
+	void send_inl(uv_write_t* req = NULL);//real send data fun
+    static void ConnectThread(void* arg);//connect thread,run until use close the client
 
     static void AfterConnect(uv_connect_t* handle, int status);
     static void AfterRecv(uv_stream_t* client, ssize_t nread, const uv_buf_t* buf);
     static void AfterSend(uv_write_t* req, int status);
     static void AllocBufferForRecv(uv_handle_t* handle, size_t suggested_size, uv_buf_t* buf);
     static void AfterClientClose(uv_handle_t* handle);
-	static void AsyncCB(uv_async_t* handle);//async阶段回调,处理用户关闭tcpserver
-	static void CloseWalkCB(uv_handle_t* handle, void* arg);//遍历loop的handle就关闭之
-    static void GetPacket(const NetPacket& packethead, const unsigned char* packetdata, void* userdata);//解析完一帧后的回调函数
+	static void AsyncCB(uv_async_t* handle);//async close
+	static void CloseWalkCB(uv_handle_t* handle, void* arg);//close all handle in loop
+    static void GetPacket(const NetPacket& packethead, const unsigned char* packetdata, void* userdata);
 	static void ReconnectTimer(uv_timer_t* handle);
 
 private:
@@ -118,45 +126,43 @@ private:
         CONNECT_DIS,
     };
 	TcpClientCtx *client_handle_;
-	uv_async_t async_handle_;//异步handle,用于处理用户关闭命令
+	uv_async_t async_handle_;
     uv_loop_t loop_;
-    bool isclosed_;//是否已关闭
-    bool isuseraskforclosed_;//用户是否发送命令关闭
+    bool isclosed_;
+    bool isuseraskforclosed_;
 
-    uv_thread_t connect_threadhandle_;//连接线程
-    uv_connect_t connect_req_;//连接时请求
+    uv_thread_t connect_threadhandle_;
+    uv_connect_t connect_req_;
 
-    int connectstatus_;//连接状态
+    int connectstatus_;
 
-    //发送数据参数
-    uv_mutex_t mutex_writebuf_;//控制writebuf_list_
-	std::list<write_param*> writeparam_list_;//可用的uv_write_t
-    PodCircularBuffer<char> write_circularbuf_;//发送数据队列
+    //send param
+    uv_mutex_t mutex_writebuf_;//mutex of writebuf_list_
+	std::list<write_param*> writeparam_list_;//Availa write_t
+    PodCircularBuffer<char> write_circularbuf_;//the data prepare to send
 
-    ClientRecvCB recvcb_;//回调函数
-    void* recvcb_userdata_;//回调函数的用户数据
+    ClientRecvCB recvcb_;
+    void* recvcb_userdata_;
 
-    TcpCloseCB closedcb_;//关闭后回调给TCPServer
+    TcpCloseCB closedcb_;
     void* closedcb_userdata_;
 
-
-	ReconnectCB reconnectcb_;//断线与重连通知函数
+	ReconnectCB reconnectcb_;
 	void* reconnect_userdata_;
 	bool StartReconnect(void);
 	void StopReconnect(void);
 	uv_timer_t reconnect_timer_;
-	bool isreconnecting_;//是否重连中
-	int64_t repeat_time_;//重连间隔时间(单位秒),y=2x(x=1..)递增
+	bool isreconnecting_;
+	int64_t repeat_time_;//repeat reconnect time. y=2x(x=1..)
 
-    std::string connectip_;//连接的服务器IP
-    int connectport_;//连接的服务器端口号
+    std::string connectip_;
+    int connectport_;
 	bool isIPv6_;
-    std::string errmsg_;//错误信息
+    std::string errmsg_;
 
-    char PACKET_HEAD;//包头
-    char PACKET_TAIL;//包尾
+    char PACKET_HEAD;//protocol head
+    char PACKET_TAIL;//protocol tail
 };
 }
-
 
 #endif // TCPCLIENT_H

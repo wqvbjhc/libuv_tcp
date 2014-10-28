@@ -31,7 +31,7 @@ TCPServer::TCPServer(char packhead, char packtail)
 TCPServer::~TCPServer()
 {
     Close();
-    uv_thread_join(&start_threadhandle_);//事件循环退出表明真正结束
+    uv_thread_join(&start_threadhandle_);
     uv_mutex_destroy(&mutex_clients_);
     uv_loop_close(&loop_);
     for (auto it = avai_tcphandle_.begin(); it != avai_tcphandle_.end(); ++it) {
@@ -46,7 +46,6 @@ TCPServer::~TCPServer()
     LOGI("tcp server exit.");
 }
 
-//初始化与关闭--服务器与客户端一致
 bool TCPServer::init()
 {
     if (!isclosed_) {
@@ -88,16 +87,7 @@ void TCPServer::closeinl()
         auto data = it->second;
         data->Close();
     }
-    //clients_list_.clear();SubClientClosed中释放
-
-    uv_walk(&loop_, CloseWalkCB, this);//替换每个handle的close
-    //uv_mutex_unlock(&mutex_clients_);
-    //if (!uv_is_closing((uv_handle_t*) &tcp_handle_)) {
-    //    uv_close((uv_handle_t*) &tcp_handle_, AfterServerClose);
-    //}
-    //if (!uv_is_closing((uv_handle_t*) &async_handle_close_)) {
-    //    uv_close((uv_handle_t*) &async_handle_close_, AfterServerClose);
-    //}
+    uv_walk(&loop_, CloseWalkCB, this);//close all handle in loop
     LOGI("close server");
 }
 
@@ -112,8 +102,8 @@ bool TCPServer::run(int status)
     }
     return true;
 }
-//属性设置--服务器与客户端一致
-bool TCPServer::setNoDelay(bool enable)
+
+bool TCPServer::SetNoDelay(bool enable)
 {
     int iret = uv_tcp_nodelay(&tcp_handle_, enable ? 1 : 0);
     if (iret) {
@@ -124,7 +114,7 @@ bool TCPServer::setNoDelay(bool enable)
     return true;
 }
 
-bool TCPServer::setKeepAlive(int enable, unsigned int delay)
+bool TCPServer::SetKeepAlive(int enable, unsigned int delay)
 {
     int iret = uv_tcp_keepalive(&tcp_handle_, enable , delay);
     if (iret) {
@@ -135,7 +125,6 @@ bool TCPServer::setKeepAlive(int enable, unsigned int delay)
     return true;
 }
 
-//作为server时的函数
 bool TCPServer::bind(const char* ip, int port)
 {
     struct sockaddr_in bind_addr;
@@ -202,7 +191,7 @@ bool TCPServer::Start(const char* ip, int port)
     if (!listen(SOMAXCONN)) {
         return false;
     }
-    int iret = uv_thread_create(&start_threadhandle_, StartThread, this);//触发AfterConnect才算真正连接成功，所以用线程
+    int iret = uv_thread_create(&start_threadhandle_, StartThread, this);//use thread to wait for start succeed.
     if (iret) {
         errmsg_ = GetUVError(iret);
         LOGE(errmsg_);
@@ -233,7 +222,7 @@ bool TCPServer::Start6(const char* ip, int port)
     if (!listen(SOMAXCONN)) {
         return false;
     }
-    int iret = uv_thread_create(&start_threadhandle_, StartThread, this);//触发AfterConnect才算真正连接成功，所以用线程
+    int iret = uv_thread_create(&start_threadhandle_, StartThread, this);//use thread to wait for start succeed.
     if (iret) {
         errmsg_ = GetUVError(iret);
         LOGE(errmsg_);
@@ -255,17 +244,15 @@ void TCPServer::StartThread(void* arg)
     TCPServer* theclass = (TCPServer*)arg;
     theclass->startstatus_ = START_FINISH;
     theclass->run();
-    //run退出表明结束
+    //the server is close when come here
     theclass->isclosed_ = true;
     theclass->isuseraskforclosed_ = false;
     LOGI("server  had closed.");
-    if (theclass->closedcb_) {//通知TCPServer此客户端已经关闭
+    if (theclass->closedcb_) {//trigger the close cb
         theclass->closedcb_(-1, theclass->closedcb_userdata_);
     }
 }
 
-
-//服务器-新客户端函数
 void TCPServer::AcceptConnection(uv_stream_t* server, int status)
 {
     TCPServer* tcpsock = (TCPServer*)server->data;
@@ -285,35 +272,35 @@ void TCPServer::AcceptConnection(uv_stream_t* server, int status)
     }
     int iret = uv_tcp_init(&tcpsock->loop_, &tmptcp->tcphandle);
     if (iret) {
-        tcpsock->avai_tcphandle_.push_back(tmptcp);//重新回收
+        tcpsock->avai_tcphandle_.push_back(tmptcp);//Recycle
         tcpsock->errmsg_ = GetUVError(iret);
         LOGE(tcpsock->errmsg_);
         return;
     }
-    tmptcp->tcphandle.data = tmptcp;//保存自己
+    tmptcp->tcphandle.data = tmptcp;
 
     auto clientid = tcpsock->GetAvailaClientID();
     tmptcp->clientid = clientid;
     iret = uv_accept((uv_stream_t*)server, (uv_stream_t*)&tmptcp->tcphandle);
     if (iret) {
-        tcpsock->avai_tcphandle_.push_back(tmptcp);//重新回收
+        tcpsock->avai_tcphandle_.push_back(tmptcp);//Recycle
         tcpsock->errmsg_ = GetUVError(iret);
         LOGE(tcpsock->errmsg_);
         return;
     }
     tmptcp->packet_->SetPacketCB(GetPacket, tmptcp);
     tmptcp->packet_->Start(tcpsock->packet_head, tcpsock->packet_tail);
-    iret = uv_read_start((uv_stream_t*)&tmptcp->tcphandle, AllocBufferForRecv, AfterRecv);//服务器开始接收客户端的数据
+    iret = uv_read_start((uv_stream_t*)&tmptcp->tcphandle, AllocBufferForRecv, AfterRecv);
     if (iret) {
         uv_close((uv_handle_t*)&tmptcp->tcphandle, TCPServer::RecycleTcpHandle);
         tcpsock->errmsg_ = GetUVError(iret);
         LOGE(tcpsock->errmsg_);
         return;
     }
-    AcceptClient* cdata = new AcceptClient(tmptcp, clientid, tcpsock->packet_head, tcpsock->packet_tail, &tcpsock->loop_); //uv_close回调函数中释放
+    AcceptClient* cdata = new AcceptClient(tmptcp, clientid, tcpsock->packet_head, tcpsock->packet_tail, &tcpsock->loop_); //delete on SubClientClosed
     cdata->SetClosedCB(TCPServer::SubClientClosed, tcpsock);
     uv_mutex_lock(&tcpsock->mutex_clients_);
-    tcpsock->clients_list_.insert(std::make_pair(clientid, cdata)); //加入到链接队列
+    tcpsock->clients_list_.insert(std::make_pair(clientid, cdata)); //add accept client
     uv_mutex_unlock(&tcpsock->mutex_clients_);
 
     if (tcpsock->newconcb_) {
@@ -323,7 +310,6 @@ void TCPServer::AcceptConnection(uv_stream_t* server, int status)
     return;
 }
 
-//服务器-接收数据回调函数
 void TCPServer::SetRecvCB(int clientid, ServerRecvCB cb, void* userdata)
 {
     uv_mutex_lock(&mutex_clients_);
@@ -334,8 +320,6 @@ void TCPServer::SetRecvCB(int clientid, ServerRecvCB cb, void* userdata)
     uv_mutex_unlock(&mutex_clients_);
 }
 
-
-//服务器-新链接回调函数
 void TCPServer::SetNewConnectCB(NewConnectCB cb, void* userdata)
 {
     newconcb_ = cb;
@@ -361,21 +345,6 @@ void TCPServer::AfterServerClose(uv_handle_t* handle)
 {
     TCPServer* theclass = (TCPServer*)handle->data;
     fprintf(stdout, "Close CB handle %p\n", handle);
-    //if (handle == (uv_handle_t*)&theclass->tcp_handle_) {
-    //    handle->data = 0;//赋值0，用于判断是否调用过
-    //}
-    //if (handle == (uv_handle_t*)&theclass->async_handle_close_) {
-    //    handle->data = 0;//赋值0，用于判断是否调用过
-    //}
-    //if (theclass->tcp_handle_.data == 0
-    //    && theclass->async_handle_close_.data == 0) {
-    //    theclass->isclosed_ = true;
-    //    theclass->isuseraskforclosed_ = false;
-    //    LOGI("client  had closed.");
-    //    if (theclass->closedcb_) {//通知TCPServer此客户端已经关闭
-    //        theclass->closedcb_(-1, theclass->closedcb_userdata_);
-    //    }
-    //}
 }
 
 void TCPServer::DeleteTcpHandle(uv_handle_t* handle)
@@ -384,10 +353,9 @@ void TCPServer::DeleteTcpHandle(uv_handle_t* handle)
     FreeTcpClientCtx(theclass);
 }
 
-
 void TCPServer::RecycleTcpHandle(uv_handle_t* handle)
 {
-    //TcpClientCtx中的uv_tcp_t都已close.
+    //the handle on TcpClientCtx had closed.
     TcpClientCtx* theclass = (TcpClientCtx*)handle->data;
     assert(theclass);
     TCPServer* parent = (TCPServer*)theclass->parent_server;
@@ -398,14 +366,11 @@ void TCPServer::RecycleTcpHandle(uv_handle_t* handle)
     }
 }
 
-
 int TCPServer::GetAvailaClientID() const
 {
     static int s_id = 0;
     return ++s_id;
 }
-
-
 
 void TCPServer::StartLog(const char* logpath /*= nullptr*/)
 {
@@ -417,6 +382,11 @@ void TCPServer::StartLog(const char* logpath /*= nullptr*/)
         zsummer::log4z::ILog4zManager::GetInstance()->SetLoggerPath(LOG4Z_MAIN_LOGGER_ID, logpath);
     }
     zsummer::log4z::ILog4zManager::GetInstance()->Start();
+}
+
+void TCPServer::StopLog()
+{
+	zsummer::log4z::ILog4zManager::GetInstance()->Stop();
 }
 
 void TCPServer::SubClientClosed(int clientid, void* userdata)
@@ -434,8 +404,8 @@ void TCPServer::SubClientClosed(int clientid, void* userdata)
             theclass->avai_tcphandle_.push_back(itfind->second->GetTcpHandle());
         }
         delete itfind->second;
-        LOGI("删除客户端:" << itfind->first);
-        fprintf(stdout, "删除客户端：%d\n", itfind->first);
+        LOGI("delete client:" << itfind->first);
+        fprintf(stdout, "delete client：%d\n", itfind->first);
         theclass->clients_list_.erase(itfind);
     }
     uv_mutex_unlock(&theclass->mutex_clients_);
@@ -443,7 +413,6 @@ void TCPServer::SubClientClosed(int clientid, void* userdata)
 
 void TCPServer::AsyncCloseCB(uv_async_t* handle)
 {
-    //处理用户关闭命令
     TCPServer* theclass = (TCPServer*)handle->data;
     if (theclass->isuseraskforclosed_) {
         theclass->closeinl();
@@ -456,8 +425,8 @@ void TCPServer::Close()
     if (isclosed_) {
         return;
     }
-    isuseraskforclosed_ = true;   //用户关闭客户端，IsClosed返回true才是真正关闭了
-    uv_async_send(&async_handle_close_);//触发真正关闭函数
+    isuseraskforclosed_ = true;
+    uv_async_send(&async_handle_close_);
 }
 
 bool TCPServer::broadcast(const std::string& senddata, std::vector<int> excludeid)
@@ -513,7 +482,7 @@ bool TCPServer::sendinl(const std::string& senddata, TcpClientCtx* client)
     if (iret) {
         writeparam_list_.push_back(writep);
         errmsg_ = "send data error.";
-        LOGE("客户端(" << client << ") send error:" << GetUVError(iret));
+        LOGE("client(" << client << ") send error:" << GetUVError(iret));
         fprintf(stdout, "send error. %s-%s\n", uv_err_name(iret), uv_strerror(iret));
         return false;
     }
@@ -532,14 +501,14 @@ AcceptClient::AcceptClient(TcpClientCtx* control,  int clientid, char packhead, 
     , isclosed_(true)
     , recvcb_(nullptr), recvcb_userdata_(nullptr), closedcb_(nullptr), closedcb_userdata_(nullptr)
 {
-    //初始化write线程参数
     init(packhead, packtail);
 }
 
 AcceptClient::~AcceptClient()
 {
     Close();
-    //while会阻塞loop.所以正常的方法是new AcceptClient；调用Close,在SetClosedCB中delete掉它
+    //while will block loop.
+	//the right way is new AcceptClient and delete it on SetClosedCB'cb
     while (!isclosed_) {
         ThreadSleep(10);
     }
@@ -551,7 +520,6 @@ bool AcceptClient::init(char packhead, char packtail)
         return true;
     }
     client_handle_->parent_acceptclient = this;
-
     isclosed_ = false;
     return true;
 }
@@ -561,11 +529,10 @@ void AcceptClient::Close()
     if (isclosed_) {
         return;
     }
-    //停止read封装类
     client_handle_->tcphandle.data = this;
-    //发过close命令，AfterClientClose触发才真正close,可通过IsClosed判断是否关闭
+    //send close command
     uv_close((uv_handle_t*)&client_handle_->tcphandle, AfterClientClose);
-    LOGI("客户端(" << this << ")close");
+    LOGI("client(" << this << ")close");
 }
 
 void AcceptClient::AfterClientClose(uv_handle_t* handle)
@@ -575,7 +542,7 @@ void AcceptClient::AfterClientClose(uv_handle_t* handle)
     if (handle == (uv_handle_t*)&theclass->client_handle_->tcphandle) {
         theclass->isclosed_ = true;
         LOGI("client  had closed.");
-        if (theclass->closedcb_) {//通知TCPServer此客户端已经关闭
+        if (theclass->closedcb_) {//notice tcpserver the client had closed
             theclass->closedcb_(theclass->client_id_, theclass->closedcb_userdata_);
         }
     }
@@ -583,14 +550,14 @@ void AcceptClient::AfterClientClose(uv_handle_t* handle)
 
 void AcceptClient::SetRecvCB(ServerRecvCB pfun, void* userdata)
 {
-    //在GetPacket触发
+    //GetPacket trigger this cb
     recvcb_ = pfun;
     recvcb_userdata_ = userdata;
 }
 
 void AcceptClient::SetClosedCB(TcpCloseCB pfun, void* userdata)
 {
-    //在AfterRecv触发
+    //AfterRecv trigger this cb
     closedcb_ = pfun;
     closedcb_userdata_ = userdata;
 }
@@ -600,9 +567,7 @@ TcpClientCtx* AcceptClient::GetTcpHandle(void) const
     return client_handle_;
 }
 
-/*****************************************全局函数*************************************************************/
-
-//分配空间接收数据
+/*****************************************Global*************************************************************/
 void AllocBufferForRecv(uv_handle_t* handle, size_t suggested_size, uv_buf_t* buf)
 {
     TcpClientCtx* theclass = (TcpClientCtx*)handle->data;
@@ -610,21 +575,20 @@ void AllocBufferForRecv(uv_handle_t* handle, size_t suggested_size, uv_buf_t* bu
     *buf = theclass->read_buf_;
 }
 
-//接收数据回调
 void AfterRecv(uv_stream_t* handle, ssize_t nread, const uv_buf_t* buf)
 {
-    TcpClientCtx* theclass = (TcpClientCtx*)handle->data;//服务器的recv带的是clientdata
+    TcpClientCtx* theclass = (TcpClientCtx*)handle->data;
     assert(theclass);
     if (nread < 0) {/* Error or EOF */
         if (nread == UV_EOF) {
-            fprintf(stdout, "客户端(%d)主动断开\n", theclass->clientid);
-            LOGW("客户端(" << theclass->clientid << ")主动断开");
+            fprintf(stdout, "client(%d)eof\n", theclass->clientid);
+            LOGW("client(" << theclass->clientid << ")eof");
         } else if (nread == UV_ECONNRESET) {
-            fprintf(stdout, "客户端(%d)异常断开\n", theclass->clientid);
-            LOGW("客户端(" << theclass->clientid << ")异常断开");
+            fprintf(stdout, "client(%d)conn reset\n", theclass->clientid);
+            LOGW("client(" << theclass->clientid << ")conn reset");
         } else {
             fprintf(stdout, "%s\n", GetUVError(nread));
-            LOGW("客户端(" << theclass->clientid << ")异常断开：" << GetUVError(nread));
+            LOGW("client(" << theclass->clientid << ")：" << GetUVError(nread));
         }
         AcceptClient* acceptclient = (AcceptClient*)theclass->parent_acceptclient;
         acceptclient->Close();
@@ -646,11 +610,11 @@ void AfterSend(uv_write_t* req, int status)
         parent->writeparam_list_.push_back((write_param*)req);
     }
     if (status < 0) {
-        LOGE("发送数据有误:" << GetUVError(status));
-        fprintf(stderr, "Write error %s.%s\n", uv_err_name(status), uv_strerror(status));
+        LOGE("send data error:" << GetUVError(status));
+        fprintf(stderr, "send error %s.%s\n", uv_err_name(status), uv_strerror(status));
     }
 }
-//得到客户端指令
+
 void GetPacket(const NetPacket& packethead, const unsigned char* packetdata, void* userdata)
 {
     fprintf(stdout, "Get control packet type %d\n", packethead.type);
@@ -668,7 +632,7 @@ TcpClientCtx* AllocTcpClientCtx(void* parentserver)
     ctx->packet_ = new PacketSync;
     ctx->read_buf_.base = (char*)malloc(BUFFER_SIZE);
     ctx->read_buf_.len = BUFFER_SIZE;
-    ctx->parent_server = parentserver;//父指针
+    ctx->parent_server = parentserver;
     ctx->parent_acceptclient = NULL;
     return ctx;
 }

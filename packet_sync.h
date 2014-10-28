@@ -11,7 +11,7 @@ packet.SetPacketCB(GetPacket,&serpac);
 packet.Start(0x01,0x02);
 //socket有数据到达时，调用packet.recvdata((const unsigned char*)buf,bufsize); 只要足够一帧它会触发GetFullPacket
 
-* @author   陈吉宏, wqvbjhc@gmail.com
+* @author   phata, wqvbjhc@gmail.com
 * @date     2014-05-21
 * @mod      2014-08-04 phata 修复解析一帧数据有误的bug
             2014-11-12 phata GetUVError冲突，改为使用thread_uv.h中的

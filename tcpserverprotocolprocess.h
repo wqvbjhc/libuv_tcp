@@ -1,6 +1,6 @@
 ﻿/***************************************
 * @file     tcpserverprotocolprocess.h
-* @brief    TCP Server协议处理纯基类，需要子类化
+* @brief    TCP Server protocol pure base class,need to subclass.
 * @details  
 * @author   phata, wqvbjhc@gmail.com
 * @date     2014-7-31
@@ -14,8 +14,11 @@ class TCPServerProtocolProcess
 public:
     TCPServerProtocolProcess(){}
     virtual ~TCPServerProtocolProcess(){}
-    //解析用户的包并生成回应包
-	//应该返回const引用避免内存拷贝，所以得定义一个成员变量std::string用于返回
+
+    //parse the recv packet, and make the response packet return. see test_tcpserver.cpp for example
+	//packet     : the recv packet
+	//buf        : the packet data
+	//std::string: the response packet. no response can't return empty string.
     virtual const std::string& ParsePacket(const NetPacket& packet, const unsigned char* buf) = 0;
 };
 

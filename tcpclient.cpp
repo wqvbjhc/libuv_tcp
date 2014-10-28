@@ -66,7 +66,7 @@ TCPClient::TCPClient(char packhead, char packtail)
 TCPClient::~TCPClient()
 {
     Close();
-    uv_thread_join(&connect_threadhandle_);//libuv事件循环已退出
+    uv_thread_join(&connect_threadhandle_);
     FreeTcpClientCtx(client_handle_);
     uv_loop_close(&loop_);
     uv_mutex_destroy(&mutex_writebuf_);
@@ -75,10 +75,9 @@ TCPClient::~TCPClient()
     }
     writeparam_list_.clear();
 
-    LOGI("客户端(" << this << ")退出");
+    LOGI("client(" << this << ")exit");
 }
 
-//初始化与关闭
 bool TCPClient::init()
 {
     if (!isclosed_) {
@@ -111,7 +110,7 @@ bool TCPClient::init()
         return false;
     }
     reconnect_timer_.data = this;
-    LOGI("客户端(" << this << ")Init");
+    LOGI("client(" << this << ")Init");
     isclosed_ = false;
     return true;
 }
@@ -121,9 +120,9 @@ void TCPClient::closeinl()
     if (isclosed_) {
         return;
     }
-	StopReconnect();
-    uv_walk(&loop_, CloseWalkCB, this);//替换每个handle的close
-    LOGI("客户端(" << this << ")close");
+    StopReconnect();
+    uv_walk(&loop_, CloseWalkCB, this);
+    LOGI("client(" << this << ")close");
 }
 
 bool TCPClient::run(int status)
@@ -131,8 +130,8 @@ bool TCPClient::run(int status)
     int iret = uv_run(&loop_, (uv_run_mode)status);
     isclosed_ = true;
     LOGI("client had closed.");
-    if (closedcb_) {//通知用户客户端已经关闭
-        closedcb_(-1, closedcb_userdata_); //客户端：clientid无效，永远为-1
+    if (closedcb_) {//trigger close cb to user
+        closedcb_(-1, closedcb_userdata_); //client id is -1.
     }
     if (iret) {
         errmsg_ = GetUVError(iret);
@@ -142,8 +141,7 @@ bool TCPClient::run(int status)
     return true;
 }
 
-//属性设置--服务器与客户端一致
-bool TCPClient::setNoDelay(bool enable)
+bool TCPClient::SetNoDelay(bool enable)
 {
     //http://blog.csdn.net/u011133100/article/details/21485983
     int iret = uv_tcp_nodelay(&client_handle_->tcphandle, enable ? 1 : 0);
@@ -155,7 +153,7 @@ bool TCPClient::setNoDelay(bool enable)
     return true;
 }
 
-bool TCPClient::setKeepAlive(int enable, unsigned int delay)
+bool TCPClient::SetKeepAlive(int enable, unsigned int delay)
 {
     int iret = uv_tcp_keepalive(&client_handle_->tcphandle, enable , delay);
     if (iret) {
@@ -166,7 +164,6 @@ bool TCPClient::setKeepAlive(int enable, unsigned int delay)
     return true;
 }
 
-//作为client的connect函数
 bool TCPClient::Connect(const char* ip, int port)
 {
     closeinl();
@@ -190,8 +187,8 @@ bool TCPClient::Connect(const char* ip, int port)
         return false;
     }
 
-    LOGI("客户端(" << this << ")start connect to server(" << ip << ":" << port << ")");
-    iret = uv_thread_create(&connect_threadhandle_, ConnectThread, this);//触发AfterConnect才算真正连接成功，所以用线程
+    LOGI("client(" << this << ")start connect to server(" << ip << ":" << port << ")");
+    iret = uv_thread_create(&connect_threadhandle_, ConnectThread, this);//thread to wait for succeed connect.
     if (iret) {
         errmsg_ = GetUVError(iret);
         LOGE(errmsg_);
@@ -236,8 +233,8 @@ bool TCPClient::Connect6(const char* ip, int port)
         return false;
     }
 
-    LOGI("客户端(" << this << ")start connect to server(" << ip << ":" << port << ")");
-    iret = uv_thread_create(&connect_threadhandle_, ConnectThread, this);//触发AfterConnect才算真正连接成功，所以用线程
+    LOGI("client(" << this << ")start connect to server(" << ip << ":" << port << ")");
+    iret = uv_thread_create(&connect_threadhandle_, ConnectThread, this);//thread to wait for succeed connect.
     if (iret) {
         errmsg_ = GetUVError(iret);
         LOGE(errmsg_);
@@ -272,9 +269,9 @@ void TCPClient::AfterConnect(uv_connect_t* handle, int status)
     if (status) {
         parent->connectstatus_ = CONNECT_ERROR;
         parent->errmsg_ = GetUVError(status);
-        LOGE("客户端(" << parent << ") connect error:" << parent->errmsg_);
+        LOGE("client(" << parent << ") connect error:" << parent->errmsg_);
         fprintf(stdout, "connect error:%s\n", parent->errmsg_.c_str());
-        if (parent->isreconnecting_) {//重连失败，重启定时器重连
+        if (parent->isreconnecting_) {//reconnect failure, restart timer to trigger reconnect.
             uv_timer_stop(&parent->reconnect_timer_);
             parent->repeat_time_ *= 2;
             uv_timer_start(&parent->reconnect_timer_, TCPClient::ReconnectTimer, parent->repeat_time_, parent->repeat_time_);
@@ -282,26 +279,25 @@ void TCPClient::AfterConnect(uv_connect_t* handle, int status)
         return;
     }
 
-    int iret = uv_read_start(handle->handle, AllocBufferForRecv, AfterRecv);//客户端开始接收服务器的数据
+    int iret = uv_read_start(handle->handle, AllocBufferForRecv, AfterRecv);
     if (iret) {
         parent->errmsg_ = GetUVError(status);
-        LOGE("客户端(" << parent << ") uv_read_start error:" << parent->errmsg_);
+        LOGE("client(" << parent << ") uv_read_start error:" << parent->errmsg_);
         fprintf(stdout, "uv_read_start error:%s\n", parent->errmsg_.c_str());
         parent->connectstatus_ = CONNECT_ERROR;
     } else {
         parent->connectstatus_ = CONNECT_FINISH;
-        LOGI("客户端(" << parent << ")run");
+        LOGI("client(" << parent << ")run");
     }
     if (parent->isreconnecting_) {
         fprintf(stdout, "reconnect succeed\n");
-        parent->StopReconnect();//重连成功
+        parent->StopReconnect();//reconnect succeed.
         if (parent->reconnectcb_) {
             parent->reconnectcb_(NET_EVENT_TYPE_RECONNECT, parent->reconnect_userdata_);
         }
     }
 }
 
-//客户端的发送函数
 int TCPClient::Send(const char* data, std::size_t len)
 {
     if (!data || len <= 0) {
@@ -309,7 +305,7 @@ int TCPClient::Send(const char* data, std::size_t len)
         LOGE(errmsg_);
         return 0;
     }
-    uv_async_send(&async_handle_);//触发真正发送函数
+    uv_async_send(&async_handle_);
     size_t iret = 0;
     while (!isuseraskforclosed_) {
         uv_mutex_lock(&mutex_writebuf_);
@@ -322,11 +318,10 @@ int TCPClient::Send(const char* data, std::size_t len)
             break;
         }
     }
-    uv_async_send(&async_handle_);//触发真正发送函数
+    uv_async_send(&async_handle_);
     return iret;
 }
 
-//客户端-接收数据回调函数
 void TCPClient::SetRecvCB(ClientRecvCB pfun, void* userdata)
 {
     recvcb_ = pfun;
@@ -345,14 +340,12 @@ void TCPClient::SetReconnectCB(ReconnectCB pfun, void* userdata)
     reconnect_userdata_ = userdata;
 }
 
-//客户端分析空间函数
 void TCPClient::AllocBufferForRecv(uv_handle_t* handle, size_t suggested_size, uv_buf_t* buf)
 {
     TcpClientCtx* theclass = (TcpClientCtx*)handle->data;
     assert(theclass);
     *buf = theclass->read_buf_;
 }
-
 
 void TCPClient::AfterRecv(uv_stream_t* handle, ssize_t nread, const uv_buf_t* buf)
 {
@@ -364,30 +357,28 @@ void TCPClient::AfterRecv(uv_stream_t* handle, ssize_t nread, const uv_buf_t* bu
             parent->reconnectcb_(NET_EVENT_TYPE_DISCONNECT, parent->reconnect_userdata_);
         }
         if (!parent->StartReconnect()) {
-            fprintf(stdout, "启动断线重连失败.\n");
+            fprintf(stdout, "Start Reconnect Failure.\n");
             return;
         }
         if (nread == UV_EOF) {
-            fprintf(stdout, "服务器主动断开,Client为%p\n", handle);
-            LOGW("服务器主动断开");
+            fprintf(stdout, "Server close(EOF), Client %p\n", handle);
+            LOGW("Server close(EOF)");
         } else if (nread == UV_ECONNRESET) {
-            fprintf(stdout, "服务器异常断开,Client为%p\n", handle);
-            LOGW("服务器异常断开");
+            fprintf(stdout, "Server close(conn reset),Client %p\n", handle);
+            LOGW("Server close(conn reset)");
         } else {
-            fprintf(stdout, "服务器异常断开，,Client为%p:%s\n", handle, GetUVError(nread));
-            LOGW("服务器异常断开" << GetUVError(nread));
+            fprintf(stdout, "Server close,Client %p:%s\n", handle, GetUVError(nread));
+            LOGW("Server close" << GetUVError(nread));
         }
         uv_close((uv_handle_t*)handle, AfterClientClose);//close before reconnect
-        //parent->Close();
         return;
     }
     parent->send_inl(NULL);
     if (nread > 0) {
-        theclass->packet_->recvdata((const unsigned char*)buf->base, nread); //新方式-解析完包后再回调数据
+        theclass->packet_->recvdata((const unsigned char*)buf->base, nread);
     }
 }
 
-//服务器与客户端一致
 void TCPClient::AfterSend(uv_write_t* req, int status)
 {
     TCPClient* theclass = (TCPClient*)req->data;
@@ -397,7 +388,7 @@ void TCPClient::AfterSend(uv_write_t* req, int status)
         } else {
             theclass->writeparam_list_.push_back((write_param*)req);
         }
-        LOGE("发送数据有误:" << GetUVError(status));
+        LOGE("send error:" << GetUVError(status));
         fprintf(stderr, "send error %s\n", GetUVError(status));
         return;
     }
@@ -427,20 +418,6 @@ void TCPClient::AfterClientClose(uv_handle_t* handle)
             return;
         }
     }
-    //if (handle == (uv_handle_t*)&theclass->client_handle_->tcphandle) {
-    //    handle->data = 0;//赋值0，用于判断是否调用过
-    //}
-    //if (handle == (uv_handle_t*)&theclass->async_handle_) {
-    //    handle->data = 0;//赋值0，用于判断是否调用过
-    //}
-    //if (theclass->async_handle_.data == 0
-    //    && theclass->client_handle_->tcphandle.data == 0) {
-    //    theclass->isclosed_ = true;
-    //    LOGI("client  had closed.");
-    //    if (theclass->closedcb_) {//通知TCPServer此客户端已经关闭
-    //        theclass->closedcb_(-1, theclass->closedcb_userdata_);
-    //    }
-    //}
 }
 
 void TCPClient::StartLog(const char* logpath /*= nullptr*/)
@@ -463,52 +440,53 @@ void TCPClient::StopLog()
 void TCPClient::GetPacket(const NetPacket& packethead, const unsigned char* packetdata, void* userdata)
 {
     assert(userdata);
-    TcpClientCtx* theclass = (TcpClientCtx*)userdata;//alone_data_tcphandle_里的值
+    TcpClientCtx* theclass = (TcpClientCtx*)userdata;
     TCPClient* parent = (TCPClient*)theclass->parent_server;
-    if (parent->recvcb_) {//把得到的数据回调给用户
+    if (parent->recvcb_) {//cb the data to user
         parent->recvcb_(packethead, packetdata, parent->recvcb_userdata_);
     }
 }
 
 void TCPClient::AsyncCB(uv_async_t* handle)
 {
-    //处理用户关闭命令
     TCPClient* theclass = (TCPClient*)handle->data;
     if (theclass->isuseraskforclosed_) {
         theclass->closeinl();
         return;
     }
-    //检测是否有数据要发送
+    //check data to send
     theclass->send_inl(NULL);
 }
 
 void TCPClient::send_inl(uv_write_t* req /*= NULL*/)
 {
     write_param* writep = (write_param*)req;
-    write_param* once_writep = writep;
-    while (true) {//发送到完
+    if (writep) {
+        if (writeparam_list_.size() > MAXLISTSIZE) {
+            FreeWriteParam(writep);
+        } else {
+            writeparam_list_.push_back(writep);
+        }
+    }
+    while (true) {
         uv_mutex_lock(&mutex_writebuf_);
         if (write_circularbuf_.empty()) {
             uv_mutex_unlock(&mutex_writebuf_);
             break;
         }
-        if (NULL == once_writep) {
-            if (writeparam_list_.empty()) {
-                writep = AllocWriteParam();
-                writep->write_req_.data = this;
-            } else {
-                writep = writeparam_list_.front();
-                writeparam_list_.pop_front();
-            }
+        if (writeparam_list_.empty()) {
+            writep = AllocWriteParam();
+            writep->write_req_.data = this;
         } else {
-            once_writep = NULL;//保证只使用一次
+            writep = writeparam_list_.front();
+            writeparam_list_.pop_front();
         }
-        writep->buf_.len = write_circularbuf_.read(writep->buf_.base, writep->buf_truelen_); //得到要发送的数据
+        writep->buf_.len = write_circularbuf_.read(writep->buf_.base, writep->buf_truelen_); 
         uv_mutex_unlock(&mutex_writebuf_);
-        int iret = uv_write((uv_write_t*)&writep->write_req_, (uv_stream_t*)&client_handle_->tcphandle, &writep->buf_, 1, AfterSend);//发送
+        int iret = uv_write((uv_write_t*)&writep->write_req_, (uv_stream_t*)&client_handle_->tcphandle, &writep->buf_, 1, AfterSend);
         if (iret) {
-            writeparam_list_.push_back(writep);//发送失败，不会调用AfterSend函数，所以得回收req
-            LOGE("客户端(" << this << ") send error:" << GetUVError(iret));
+            writeparam_list_.push_back(writep);//failure not call AfterSend. so recycle req
+            LOGE("client(" << this << ") send error:" << GetUVError(iret));
             fprintf(stdout, "send error. %s-%s\n", uv_err_name(iret), uv_strerror(iret));
         }
     }
@@ -519,15 +497,15 @@ void TCPClient::Close()
     if (isclosed_) {
         return;
     }
-    isuseraskforclosed_ = true;   //用户关闭客户端，IsClosed返回true才是真正关闭了
-    uv_async_send(&async_handle_);//触发真正关闭函数
+    isuseraskforclosed_ = true;
+    uv_async_send(&async_handle_);
 }
 
 bool TCPClient::StartReconnect(void)
 {
     isreconnecting_ = true;
     client_handle_->tcphandle.data = this;
-    repeat_time_ = 1e3;//1秒
+    repeat_time_ = 1e3;//1 sec
     return true;
 }
 
@@ -535,16 +513,17 @@ void TCPClient::StopReconnect(void)
 {
     isreconnecting_ = false;
     client_handle_->tcphandle.data = client_handle_;
-    repeat_time_ = 1e3;//1秒
-	uv_timer_stop(&reconnect_timer_);
+    repeat_time_ = 1e3;//1 sec
+    uv_timer_stop(&reconnect_timer_);
 }
+
 void TCPClient::ReconnectTimer(uv_timer_t* handle)
 {
     TCPClient* theclass = (TCPClient*)handle->data;
     if (!theclass->isreconnecting_) {
         return;
     }
-	LOGI("start reconnect...\n");
+    LOGI("start reconnect...\n");
     do {
         int iret = uv_tcp_init(&theclass->loop_, &theclass->client_handle_->tcphandle);
         if (iret) {
@@ -581,7 +560,7 @@ void TCPClient::ReconnectTimer(uv_timer_t* handle)
         }
         return;
     } while (0);
-    //重连失败，重启定时器重连
+    //reconnect failure, restart timer to trigger reconnect.
     uv_timer_stop(handle);
     theclass->repeat_time_ *= 2;
     uv_timer_start(handle, TCPClient::ReconnectTimer, theclass->repeat_time_, theclass->repeat_time_);
