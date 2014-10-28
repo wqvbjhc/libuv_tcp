@@ -7,7 +7,7 @@ Refer to [**test_tcpserver.cpp**] [1] and [**test_tcpclient.cpp**] [1]
 
 # <i class="icon-hdd"></i>Author:  Phata<br>
 Blog: http://www.cnblogs.com/wqvbjhc/<br>
-E-mail: wqvbjhc@gmail.com<br>
+E-mail: feitemj@gmail.com<br>
 QQ: 1930952842<br>
 Github: https://github.com/wqvbjhc<br>
 
