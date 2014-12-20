@@ -2,7 +2,7 @@
 * @file     DumpFile.h
 * @brief    一个宏命令，就可以程序崩溃时生成dump文件
 * @details  在主程序初始化时加入 DeclareDumpFile();
-* @author   陈吉宏, wqvbjhc@gmail.com
+* @author   phata, wqvbjhc@gmail.com
 * @date     2014-2-10
 * @mod      2014-05-14 phata 添加控制台项目缺少的头文件
             2014-05-15 phata 更改生成dmp文件命名方法("日期_时间.dmp"改为"exe全名(日期_时间).dmp")

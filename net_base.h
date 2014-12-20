@@ -7,7 +7,7 @@
 			int32与int64序列/反序列化为char[4],char[8]
 			数据包头结构定义
 			在win平台测试过，linux平台未测试
-* @author   陈吉宏, wqvbjhc@gmail.com
+* @author   phata, wqvbjhc@gmail.com
 * @date     2014-5-16
 * @mod      2014-5-21 phata 包定义添加了包头包尾版本和校验位信息
 ****************************************/
