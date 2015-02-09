@@ -2,7 +2,7 @@
 * @file     tcpclient.h
 * @brief    基于libuv封装的tcp服务器与客户端,使用log4z作日志工具
 * @details
-* @author   phata, wqvbjhc@gmail.com
+* @author   陈吉宏, wqvbjhc@gmail.com
 * @date     2014-05-13
 * @mod      2014-05-13  phata  修正服务器与客户端的错误.现服务器支持多客户端连接
                                修改客户端测试代码，支持并发多客户端测试
@@ -22,6 +22,8 @@
 							   2.prepare里的判断用户关闭tcp和发送数据由uv_async_send代替
 							   3.prepare里的删除多余空闲handle,write_t不需要。回收空闲handle,write_t时判断是否多出预计，多时不回收，直接释放。
 			2014-11-16  phata  修改发送数据uv_async_send逻辑，现在发送不延时
+			2015-01-06  phata  使用uv_walk关闭各handle,整个loop关闭回调在run返回后触发。
+			                   加入断线重连功能
 ****************************************/
 #ifndef TCPCLIENT_H
 #define TCPCLIENT_H
@@ -33,11 +35,6 @@
 #ifndef BUFFER_SIZE
 #define BUFFER_SIZE (1024*10)
 #endif
-
-//#define ARRAY_SIZE(a) (sizeof(a) / sizeof((a)[0]))
-//
-//#define container_of(ptr, type, member) \
-//	((type *) ((char *) (ptr) - offsetof(type, member)))
 
 namespace uv
 {
@@ -52,19 +49,19 @@ namespace uv
 调用IsClosed判断客户端是否真正关闭了
 *************************************************/
 typedef struct _tcpclient_ctx {
-    uv_tcp_t tcphandle;//data存放this
-    uv_write_t write_req;//data存放this
-    PacketSync* packet_;//userdata存放this
+    uv_tcp_t tcphandle;//store this on data
+    uv_write_t write_req;//store this on data
+    PacketSync* packet_;//store this on userdata
     uv_buf_t read_buf_;
     int clientid;
-    void* parent_server;
+    void* parent_server;//store TCPClient point
 } TcpClientCtx;
 TcpClientCtx* AllocTcpClientCtx(void* parentserver);
 void FreeTcpClientCtx(TcpClientCtx* ctx);
 
 typedef struct _write_param{//vu_write带的参数
-	uv_write_t write_req_;
-	uv_buf_t buf_;//需要释放
+	uv_write_t write_req_;//store TCPClient on data
+	uv_buf_t buf_;
 	int buf_truelen_;
 }write_param;
 write_param * AllocWriteParam(void);
@@ -81,6 +78,7 @@ public:
     //基本函数
     void SetRecvCB(ClientRecvCB pfun, void* userdata);////设置接收回调函数，只有一个
     void SetClosedCB(TcpCloseCB pfun, void* userdata);//设置接收关闭事件的回调函数
+	void SetReconnectCB(ReconnectCB pfun, void* userdata);//设置断重与重连通知函数
     bool Connect(const char* ip, int port);//启动connect线程，循环等待直到connect完成
     bool Connect6(const char* ip, int port);//启动connect线程，循环等待直到connect完成
     int  Send(const char* data, std::size_t len);
@@ -108,7 +106,9 @@ protected:
     static void AllocBufferForRecv(uv_handle_t* handle, size_t suggested_size, uv_buf_t* buf);
     static void AfterClientClose(uv_handle_t* handle);
 	static void AsyncCB(uv_async_t* handle);//async阶段回调,处理用户关闭tcpserver
+	static void CloseWalkCB(uv_handle_t* handle, void* arg);//遍历loop的handle就关闭之
     static void GetPacket(const NetPacket& packethead, const unsigned char* packetdata, void* userdata);//解析完一帧后的回调函数
+	static void ReconnectTimer(uv_timer_t* handle);
 
 private:
     enum {
@@ -139,9 +139,18 @@ private:
     TcpCloseCB closedcb_;//关闭后回调给TCPServer
     void* closedcb_userdata_;
 
+
+	ReconnectCB reconnectcb_;//断线与重连通知函数
+	void* reconnect_userdata_;
+	bool StartReconnect(void);
+	void StopReconnect(void);
+	uv_timer_t reconnect_timer_;
+	bool isreconnecting_;//是否重连中
+	int64_t repeat_time_;//重连间隔时间(单位秒),y=2x(x=1..)递增
+
     std::string connectip_;//连接的服务器IP
     int connectport_;//连接的服务器端口号
-
+	bool isIPv6_;
     std::string errmsg_;//错误信息
 
     char PACKET_HEAD;//包头

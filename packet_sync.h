@@ -6,12 +6,12 @@
 			同一线程中实时解码
 			长度为0的md5为：d41d8cd98f00b204e9800998ecf8427e，改为全0. 编解码时修改。
 //调用方法
-Packet packet; 
+Packet packet;
 packet.SetPacketCB(GetPacket,&serpac);
 packet.Start(0x01,0x02);
 //socket有数据到达时，调用packet.recvdata((const unsigned char*)buf,bufsize); 只要足够一帧它会触发GetFullPacket
 
-* @author   phata, wqvbjhc@gmail.com
+* @author   陈吉宏, wqvbjhc@gmail.com
 * @date     2014-05-21
 * @mod      2014-08-04 phata 修复解析一帧数据有误的bug
             2014-11-12 phata GetUVError冲突，改为使用thread_uv.h中的
@@ -46,8 +46,7 @@ typedef void (*GetFullPacket)(const NetPacket& packethead, const unsigned char* 
 class PacketSync
 {
 public:
-    PacketSync(): packet_cb_(NULL), packetcb_userdata_(NULL)
-    {
+    PacketSync(): packet_cb_(NULL), packetcb_userdata_(NULL) {
         thread_readdata = uv_buf_init((char*)malloc(BUFFER_SIZE), BUFFER_SIZE); //负责从circulebuffer_读取数据
         thread_packetdata = uv_buf_init((char*)malloc(BUFFER_SIZE), BUFFER_SIZE); //负责从circulebuffer_读取packet 中data部分
         truepacketlen = 0;//readdata有效数据长度
@@ -56,22 +55,19 @@ public:
         parsetype = PARSE_NOTHING;
         getdatalen = 0;
     }
-    virtual ~PacketSync()
-    {
-		free(thread_readdata.base);
-		free(thread_packetdata.base);
+    virtual ~PacketSync() {
+        free(thread_readdata.base);
+        free(thread_packetdata.base);
     }
 
-    bool Start(char packhead, char packtail)
-    {
+    bool Start(char packhead, char packtail) {
         HEAD = packhead;
         TAIL = packtail;
         return true;
     }
 
 public:
-    void recvdata(const unsigned char* data, int len)   //接收到数据，把数据保存在circulebuffer_
-    {
+    void recvdata(const unsigned char* data, int len) { //接收到数据，把数据保存在circulebuffer_
         int iret = 0;
         while (iret < len || truepacketlen >= NET_PACKAGE_HEADLEN + 2) {
             if (PARSE_NOTHING == parsetype) {//未解析出head
@@ -200,8 +196,7 @@ public:
             parsetype = PARSE_NOTHING;//重头再来
         }
     }
-    void SetPacketCB(GetFullPacket pfun, void* userdata)
-    {
+    void SetPacketCB(GetFullPacket pfun, void* userdata) {
         packet_cb_ = pfun;
         packetcb_userdata_ = userdata;
     }
@@ -271,5 +266,13 @@ typedef void (*ServerRecvCB)(int clientid, const NetPacket& packethead, const un
 
 //TCPClient接收到服务器数据回调给用户
 typedef void (*ClientRecvCB)(const NetPacket& packethead, const unsigned char* buf, void* userdata);
+
+//网络事件类型
+typedef enum {
+    NET_EVENT_TYPE_RECONNECT = 0,  //与服务器自动重连成功事件
+    NET_EVENT_TYPE_DISCONNECT      //与服务器断开事件
+} NET_EVENT_TYPE;
+//TCPClient断线重连函数
+typedef void (*ReconnectCB)(NET_EVENT_TYPE eventtype, void* userdata);
 
 #endif//PACKET_SYNC_H

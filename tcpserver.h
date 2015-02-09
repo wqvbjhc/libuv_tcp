@@ -2,7 +2,7 @@
 * @file     tcpserver.h
 * @brief    基于libuv封装的tcp服务器与客户端,使用log4z作日志工具
 * @details
-* @author   phata, wqvbjhc@gmail.com
+* @author   陈吉宏, wqvbjhc@gmail.com
 * @date     2014-05-13
 * @mod      2014-05-13  phata  修正服务器与客户端的错误.现服务器支持多客户端连接
                                修改客户端测试代码，支持并发多客户端测试
@@ -26,6 +26,7 @@
 							   启动一个timer检测任务的启动与停止
 			2014-11-20  phata  把增删改信息广播给其他客户端，非直接广播所有信息
 		    2014-12-11  phata  SendAlarm没触发，修正
+			2015-01-06  phata  使用uv_walk关闭各handle,整个loop关闭回调在run返回后触发。
 ****************************************/
 #ifndef TCPSERVER_H
 #define TCPSERVER_H
@@ -39,11 +40,6 @@
 #ifndef BUFFER_SIZE
 #define BUFFER_SIZE (1024*10)
 #endif
-
-//#define ARRAY_SIZE(a) (sizeof(a) / sizeof((a)[0]))
-//
-//#define container_of(ptr, type, member) \
-//	((type *) ((char *) (ptr) - offsetof(type, member)))
 
 namespace uv
 {
@@ -92,7 +88,7 @@ public:
 
     bool Start(const char* ip, int port);//启动服务器,地址为IP4
     bool Start6(const char* ip, int port);//启动服务器，地址为IP6
-    void Close();//用户触发关闭，IsClosed返回true才是真正关闭了
+    void Close();//用户触发关闭，发送关闭指令，IsClosed返回true才是真正关闭了
     bool IsClosed() {
         return isclosed_;
     };//判断客户端是否已关闭
@@ -114,6 +110,7 @@ protected:
     static void AcceptConnection(uv_stream_t* server, int status);
     static void SubClientClosed(int clientid, void* userdata); //AcceptClient关闭后回调给TCPServer
     static void AsyncCloseCB(uv_async_t* handle);//async阶段回调,处理用户关闭tcpserver
+	static void CloseWalkCB(uv_handle_t* handle, void* arg);//遍历loop的handle就关闭之
 
 private:
     enum {
@@ -175,20 +172,20 @@ public:
 功能：TCP Server Accept中获取的client对象
 调用方法：
 设置回调函数SetRecvCB/SetClosedCB
-调用AcceptByServer依附上服务器
-调用Send发送数据(可选)
 调用Close停止客户端，真正停止时会触发在回调closedcb_中delete对象SetClosedCB所设置的函数
 调用IsClosed判断客户端是否真正关闭了
 *************************************************/
 class AcceptClient
 {
 public:
-    AcceptClient(TcpClientCtx* control, int clientid, char packhead, char packtail, uv_loop_t* loop);//server的loop
+	//control: 客户端数据，由server负责其生命周期
+    //loop: server的loop
+    AcceptClient(TcpClientCtx* control, int clientid, char packhead, char packtail, uv_loop_t* loop);
     virtual ~AcceptClient();
 
     void SetRecvCB(ServerRecvCB pfun, void* userdata);//设置接收数据回调函数
     void SetClosedCB(TcpCloseCB pfun, void* userdata);//设置接收关闭事件的回调函数
-    TcpClientCtx* GetTcpHandle(void) const;;
+    TcpClientCtx* GetTcpHandle(void) const;//返回TcpClientCtx给服务器
 
     void Close();//内部真正的清理函数
 

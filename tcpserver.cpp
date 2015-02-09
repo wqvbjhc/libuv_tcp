@@ -89,13 +89,15 @@ void TCPServer::closeinl()
         data->Close();
     }
     //clients_list_.clear();SubClientClosed中释放
-    uv_mutex_unlock(&mutex_clients_);
-    if (!uv_is_closing((uv_handle_t*) &tcp_handle_)) {
-        uv_close((uv_handle_t*) &tcp_handle_, AfterServerClose);
-    }
-    if (!uv_is_closing((uv_handle_t*) &async_handle_close_)) {
-        uv_close((uv_handle_t*) &async_handle_close_, AfterServerClose);
-    }
+
+    uv_walk(&loop_, CloseWalkCB, this);//替换每个handle的close
+    //uv_mutex_unlock(&mutex_clients_);
+    //if (!uv_is_closing((uv_handle_t*) &tcp_handle_)) {
+    //    uv_close((uv_handle_t*) &tcp_handle_, AfterServerClose);
+    //}
+    //if (!uv_is_closing((uv_handle_t*) &async_handle_close_)) {
+    //    uv_close((uv_handle_t*) &async_handle_close_, AfterServerClose);
+    //}
     LOGI("close server");
 }
 
@@ -253,6 +255,13 @@ void TCPServer::StartThread(void* arg)
     TCPServer* theclass = (TCPServer*)arg;
     theclass->startstatus_ = START_FINISH;
     theclass->run();
+    //run退出表明结束
+    theclass->isclosed_ = true;
+    theclass->isuseraskforclosed_ = false;
+    LOGI("server  had closed.");
+    if (theclass->closedcb_) {//通知TCPServer此客户端已经关闭
+        theclass->closedcb_(-1, theclass->closedcb_userdata_);
+    }
 }
 
 
@@ -326,7 +335,6 @@ void TCPServer::SetRecvCB(int clientid, ServerRecvCB cb, void* userdata)
 }
 
 
-
 //服务器-新链接回调函数
 void TCPServer::SetNewConnectCB(NewConnectCB cb, void* userdata)
 {
@@ -340,25 +348,34 @@ void TCPServer::SetClosedCB(TcpCloseCB pfun, void* userdata)
     closedcb_userdata_ = userdata;
 }
 
+/* Fully close a loop */
+void TCPServer::CloseWalkCB(uv_handle_t* handle, void* arg)
+{
+	TCPServer* theclass = (TCPServer*)arg;
+	if (!uv_is_closing(handle)) {
+		uv_close(handle, AfterServerClose);
+	}
+}
+
 void TCPServer::AfterServerClose(uv_handle_t* handle)
 {
     TCPServer* theclass = (TCPServer*)handle->data;
     fprintf(stdout, "Close CB handle %p\n", handle);
-    if (handle == (uv_handle_t*)&theclass->tcp_handle_) {
-        handle->data = 0;//赋值0，用于判断是否调用过
-    }
-    if (handle == (uv_handle_t*)&theclass->async_handle_close_) {
-        handle->data = 0;//赋值0，用于判断是否调用过
-    }
-    if (theclass->tcp_handle_.data == 0
-        && theclass->async_handle_close_.data == 0) {
-        theclass->isclosed_ = true;
-        theclass->isuseraskforclosed_ = false;
-        LOGI("client  had closed.");
-        if (theclass->closedcb_) {//通知TCPServer此客户端已经关闭
-            theclass->closedcb_(-1, theclass->closedcb_userdata_);
-        }
-    }
+    //if (handle == (uv_handle_t*)&theclass->tcp_handle_) {
+    //    handle->data = 0;//赋值0，用于判断是否调用过
+    //}
+    //if (handle == (uv_handle_t*)&theclass->async_handle_close_) {
+    //    handle->data = 0;//赋值0，用于判断是否调用过
+    //}
+    //if (theclass->tcp_handle_.data == 0
+    //    && theclass->async_handle_close_.data == 0) {
+    //    theclass->isclosed_ = true;
+    //    theclass->isuseraskforclosed_ = false;
+    //    LOGI("client  had closed.");
+    //    if (theclass->closedcb_) {//通知TCPServer此客户端已经关闭
+    //        theclass->closedcb_(-1, theclass->closedcb_userdata_);
+    //    }
+    //}
 }
 
 void TCPServer::DeleteTcpHandle(uv_handle_t* handle)
@@ -430,8 +447,8 @@ void TCPServer::AsyncCloseCB(uv_async_t* handle)
     TCPServer* theclass = (TCPServer*)handle->data;
     if (theclass->isuseraskforclosed_) {
         theclass->closeinl();
-        return;
     }
+        return;
 }
 
 void TCPServer::Close()
@@ -503,9 +520,9 @@ bool TCPServer::sendinl(const std::string& senddata, TcpClientCtx* client)
     return true;
 }
 
-void TCPServer::SetPortocol( TCPServerProtocolProcess *pro )
+void TCPServer::SetPortocol(TCPServerProtocolProcess* pro)
 {
-	protocol_ = pro;
+    protocol_ = pro;
 }
 
 /*****************************************AcceptClient*************************************************************/
@@ -636,7 +653,7 @@ void AfterSend(uv_write_t* req, int status)
 //得到客户端指令
 void GetPacket(const NetPacket& packethead, const unsigned char* packetdata, void* userdata)
 {
-    fprintf(stdout, "Get control packet %d\n", packethead.type);
+    fprintf(stdout, "Get control packet type %d\n", packethead.type);
     assert(userdata);
     TcpClientCtx* theclass = (TcpClientCtx*)userdata;
     TCPServer* parent = (TCPServer*)theclass->parent_server;
