@@ -5,7 +5,7 @@ libuv_tcp is an C++ class that include tcp server and client which package using
 # <i class="icon-hdd"></i>Usage:<br>
 Refer to [**test_tcpserver.cpp**] [1] and [**test_tcpclient.cpp**] [1]
 
-# <i class="icon-hdd"></i>Auther:  Phata<br>
+# <i class="icon-hdd"></i>Author:  Phata<br>
 Blog: http://www.cnblogs.com/wqvbjhc/<br>
 E-mail: wqvbjhc@gmail.com<br>
 QQ: 1930952842<br>
