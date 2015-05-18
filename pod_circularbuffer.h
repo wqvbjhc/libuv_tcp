@@ -3,7 +3,7 @@
 * @brief    环形缓冲区-支持存储pod数据类型，直接用memcpy连续复制多个数据
 * @details  出处：http://blog.163.com/qimo601@126/blog/static/1582209320121169244219/
             原作者地址：http://blog.csdn.net/devday/article/details/5258697
-* @author   陈吉宏, wqvbjhc@gmail.com
+* @author   phata, wqvbjhc@gmail.com
 * @date     2014-5-20
 ****************************************/
 #ifndef POD_CIRCULAR_BUFFER_H
