@@ -2,7 +2,7 @@
 * @file     thread_uv.h
 * @brief    对libuv下的线程与锁进行封装
 * @details
-* @author   陈吉宏,wqvbjhc@gmail.com
+* @author   phata,wqvbjhc@gmail.com
 * @date     2014-10-27
 * @mod      2015-03-24  phata  uv_err_name,uv_strerror返回NULL时直接转string会崩溃，先判断
 ******************************************/
