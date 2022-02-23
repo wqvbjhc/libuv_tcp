@@ -587,7 +587,7 @@ void AfterRecv(uv_stream_t* handle, ssize_t nread, const uv_buf_t* buf)
             fprintf(stdout, "client(%d)conn reset\n", theclass->clientid);
             LOGW("client(" << theclass->clientid << ")conn reset");
         } else {
-            fprintf(stdout, "%s\n", GetUVError(nread));
+            fprintf(stdout, "%s\n", GetUVError(nread).c_str());
             LOGW("client(" << theclass->clientid << ")：" << GetUVError(nread));
         }
         AcceptClient* acceptclient = (AcceptClient*)theclass->parent_acceptclient;

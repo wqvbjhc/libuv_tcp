@@ -1,7 +1,6 @@
 ﻿#include <iostream>
 #include <string>
 #include "tcpclient.h"
-#include "mswin_special/sys/DumpFile.h"
 using namespace std;
 using namespace uv;
 
@@ -40,7 +39,6 @@ int main(int argc, char** argv)
         fprintf(stdout, "usage: %s server_ip_address clientcount\neg.%s 192.168.1.1 50\n", argv[0], argv[0]);
         return 0;
     }
-    DeclareDumpFile();
     serverip = argv[1];
 
     const int clientsize = std::stoi(argv[2]);

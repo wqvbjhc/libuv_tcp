@@ -1,7 +1,6 @@
 ﻿#include <iostream>
 #include <string>
 #include "tcpserver.h"
-#include "mswin_special/sys/DumpFile.h"
 class TestTCPProtocol: public TCPServerProtocolProcess
 {
 public:
@@ -44,7 +43,6 @@ void NewConnect(int clientid, void* userdata)
 int main(int argc, char** argv)
 {
 	TestTCPProtocol protocol;
-    DeclareDumpFile();
     TCPServer::StartLog("log/");
     server.SetNewConnectCB(NewConnect,&server);
 	server.SetPortocol(&protocol);

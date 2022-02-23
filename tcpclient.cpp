@@ -367,7 +367,7 @@ void TCPClient::AfterRecv(uv_stream_t* handle, ssize_t nread, const uv_buf_t* bu
             fprintf(stdout, "Server close(conn reset),Client %p\n", handle);
             LOGW("Server close(conn reset)");
         } else {
-            fprintf(stdout, "Server close,Client %p:%s\n", handle, GetUVError(nread));
+            fprintf(stdout, "Server close,Client %p:%s\n", handle, GetUVError(nread).c_str());
             LOGW("Server close" << GetUVError(nread));
         }
         uv_close((uv_handle_t*)handle, AfterClientClose);//close before reconnect
@@ -389,7 +389,7 @@ void TCPClient::AfterSend(uv_write_t* req, int status)
             theclass->writeparam_list_.push_back((write_param*)req);
         }
         LOGE("send error:" << GetUVError(status));
-        fprintf(stderr, "send error %s\n", GetUVError(status));
+        fprintf(stderr, "send error %s\n", GetUVError(status).c_str());
         return;
     }
     theclass->send_inl(req);
