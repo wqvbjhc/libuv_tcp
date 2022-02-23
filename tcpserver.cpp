@@ -87,6 +87,7 @@ void TCPServer::closeinl()
         auto data = it->second;
         data->Close();
     }
+    uv_mutex_unlock(&mutex_clients_);
     uv_walk(&loop_, CloseWalkCB, this);//close all handle in loop
     LOGI("close server");
 }
