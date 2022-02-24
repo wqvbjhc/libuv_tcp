@@ -90,7 +90,7 @@ int main(int argc, char** argv)
         fprintf(stdout, "send succeed:%s\n", senddata);
     }
     while (!is_exist) {
-        Sleep(10);
+        uv_thread_sleep(1000);
     }
     return 0;
 }

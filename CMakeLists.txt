@@ -79,6 +79,34 @@ else()
         message(STATUS "The compiler ${CMAKE_CXX_COMPILER} has no C++11 support. Please use a different C++ compiler.")
     endif()
 
+    ### find libuv
+    set(LIBUV_DIR ${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/libuv)
+    if(CMAKE_CL_64 OR ${CMAKE_SIZEOF_VOID_P} EQUAL "8")        # -- 64-bit builds.
+      set(LIBUV_LIB_DIRS "${LIBUV_DIR}/lib/linux_lib_x64")
+    else()                                                     # -- 32-bit builds.
+      set(LIBUV_LIB_DIRS "${LIBUV_DIR}/lib/linux_lib")
+    endif()
+    set(LIBUV_FOUND True)
+    set(LIBUV_INCLUDE_DIRS ${LIBUV_DIR}/include)
+    set(LIBUV_LIBRARIES uv)
+    include_directories(${LIBUV_INCLUDE_DIRS})
+    link_directories(${LIBUV_LIB_DIRS})
+
+    ### find openssl
+    set(OpenSSL_DIR ${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/openssl)
+    if(CMAKE_CL_64 OR ${CMAKE_SIZEOF_VOID_P} EQUAL "8")        # -- 64-bit builds.
+      set(OPENSSL_LIB_DIRS "${OpenSSL_DIR}/lib/linux_lib_x64")
+    else()                                                     # -- 32-bit builds.
+      set(OPENSSL_LIB_DIRS "${OpenSSL_DIR}/lib/linux_lib")
+    endif()
+    set(OpenSSL_FOUND True)
+    set(OPENSSL_INCLUDE_DIR ${OpenSSL_DIR}/include)
+    include_directories(${OPENSSL_INCLUDE_DIR})
+    link_directories(${OPENSSL_LIB_DIRS})
+    set(OPENSSL_LIBRARIES crypto ssl)
+
+    list(APPEND platform_link_flags pthread)
+
 endif()
 
 message(STATUS "Find Libuv ${LIBUV_FOUND}")

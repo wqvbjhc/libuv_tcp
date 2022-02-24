@@ -64,6 +64,12 @@ typedef struct _write_param { //the param of uv_write
 write_param* AllocWriteParam(void);
 void FreeWriteParam(write_param* param);
 
+//Global Function
+static void AllocBufferForRecv(uv_handle_t* handle, size_t suggested_size, uv_buf_t* buf);
+static void AfterRecv(uv_stream_t* client, ssize_t nread, const uv_buf_t* buf);
+static void AfterSend(uv_write_t* req, int status);
+static void GetPacket(const NetPacket& packethead, const unsigned char* packetdata, void* userdata);
+
 /*************************************************
 Fun：TCP Server
 Usage：
@@ -170,10 +176,10 @@ private:
     std::list<write_param*> writeparam_list_;//Availa write_t
 
 public:
-    friend static void AllocBufferForRecv(uv_handle_t* handle, size_t suggested_size, uv_buf_t* buf);
-    friend static void AfterRecv(uv_stream_t* client, ssize_t nread, const uv_buf_t* buf);
-    friend static void AfterSend(uv_write_t* req, int status);
-    friend static void GetPacket(const NetPacket& packethead, const unsigned char* packetdata, void* userdata);
+    friend void AllocBufferForRecv(uv_handle_t* handle, size_t suggested_size, uv_buf_t* buf);
+    friend void AfterRecv(uv_stream_t* client, ssize_t nread, const uv_buf_t* buf);
+    friend void AfterSend(uv_write_t* req, int status);
+    friend void GetPacket(const NetPacket& packethead, const unsigned char* packetdata, void* userdata);
 };
 
 /***********************************************Accept client on Server**********************************************************************/
@@ -220,17 +226,12 @@ private:
 private:
     static void AfterClientClose(uv_handle_t* handle);
 public:
-    friend static void AllocBufferForRecv(uv_handle_t* handle, size_t suggested_size, uv_buf_t* buf);
-    friend static void AfterRecv(uv_stream_t* client, ssize_t nread, const uv_buf_t* buf);
-    friend static void AfterSend(uv_write_t* req, int status);
-    friend static void GetPacket(const NetPacket& packethead, const unsigned char* packetdata, void* userdata);
+    friend void AllocBufferForRecv(uv_handle_t* handle, size_t suggested_size, uv_buf_t* buf);
+    friend void AfterRecv(uv_stream_t* client, ssize_t nread, const uv_buf_t* buf);
+    friend void AfterSend(uv_write_t* req, int status);
+    friend void GetPacket(const NetPacket& packethead, const unsigned char* packetdata, void* userdata);
 };
 
-//Global Function
-static void AllocBufferForRecv(uv_handle_t* handle, size_t suggested_size, uv_buf_t* buf);
-static void AfterRecv(uv_stream_t* client, ssize_t nread, const uv_buf_t* buf);
-static void AfterSend(uv_write_t* req, int status);
-static void GetPacket(const NetPacket& packethead, const unsigned char* packetdata, void* userdata);
 }
 
 

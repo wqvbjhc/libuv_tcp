@@ -52,7 +52,7 @@ int main(int argc, char** argv)
 	server.SetKeepAlive(1,60);//enable Keepalive, 60s
     fprintf(stdout,"server return on main.\n");
     while(!is_eist) {
-        Sleep(10);
+        uv_thread_sleep(1000);
     }
     return 0;
 }
